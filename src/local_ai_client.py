@@ -49,16 +49,20 @@ class LocalAIClient:
                 raise ValueError(f"local AI role {role_name} must be an object")
             model = role_cfg.get("model")
             vision = role_cfg.get("vision")
+            think = role_cfg.get("think", False)
             system_prompt = role_cfg.get("system_prompt")
             if not isinstance(model, str) or not model.strip():
                 raise ValueError(f"local AI role {role_name}.model must be a non-empty string")
             if not isinstance(vision, bool):
                 raise ValueError(f"local AI role {role_name}.vision must be boolean")
+            if not isinstance(think, bool):
+                raise ValueError(f"local AI role {role_name}.think must be boolean")
             if not isinstance(system_prompt, str):
                 raise ValueError(f"local AI role {role_name}.system_prompt must be a string")
             normalized_roles[role_name] = {
                 "model": model.strip(),
                 "vision": vision,
+                "think": think,
                 "system_prompt": system_prompt.strip(),
             }
 
@@ -129,6 +133,7 @@ class LocalAIClient:
                 role_name: {
                     "model": role_cfg["model"],
                     "vision": role_cfg["vision"],
+                    "think": role_cfg["think"],
                     "installed": role_cfg["model"] in installed,
                 }
                 for role_name, role_cfg in self.roles.items()
@@ -185,6 +190,7 @@ class LocalAIClient:
             {
                 "model": role_cfg["model"],
                 "messages": messages,
+                "think": role_cfg["think"],
                 "stream": False,
                 "keep_alive": self.keep_alive,
             },
