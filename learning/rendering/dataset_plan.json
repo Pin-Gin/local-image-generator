@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "target_style": "Matte Dimensional Anime",
+  "trigger_token": "mdanime_style",
+  "minimum_images": 20,
+  "recommended_images": 40,
+  "goal": "Learn rendering characteristics without learning one specific character, outfit, background, or composition.",
+  "coverage": {
+    "subjects": {
+      "full_body_people": 10,
+      "upper_body_people": 8,
+      "objects_and_furniture": 6,
+      "interiors": 8,
+      "exteriors": 8
+    },
+    "camera": [
+      "close",
+      "medium",
+      "full_body",
+      "wide"
+    ],
+    "lighting": [
+      "soft_front",
+      "soft_side",
+      "backlit",
+      "indoor_ambient",
+      "evening"
+    ],
+    "depth": [
+      "foreground_subject_background",
+      "deep_interior_perspective",
+      "shallow_scene_without_flattening"
+    ],
+    "materials": [
+      "matte_skin",
+      "hair",
+      "fabric",
+      "wood",
+      "painted_metal",
+      "glass_as_secondary_material"
+    ]
+  },
+  "avoid_dataset_bias": [
+    "same_character_in_most_images",
+    "same_outfit_in_most_images",
+    "same_background_in_most_images",
+    "near_duplicate_frames",
+    "photorealistic_skin",
+    "glossy_pbr_cgi",
+    "watercolor_or_flat_cel_dominance"
+  ],
+  "caption_example": "mdanime_style, adult woman, full body, indoor room, soft side lighting, matte surfaces, dimensional anime shading, visible foreground and background depth"
+}
