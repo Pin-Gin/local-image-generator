@@ -26,6 +26,7 @@ python -m PyInstaller `
   --add-data "workflows;workflows" `
   --add-data "shared;shared" `
   --add-data "domains;domains" `
+  --add-data "learning\registry;learning\registry" `
   --hidden-import webview.platforms.edgechromium `
   src\desktop_app.py
 
