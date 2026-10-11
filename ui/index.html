@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>local-RAG</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="interaction.css">
 </head>
 <body>
   <main class="app-shell generation-mode" id="app-shell">
@@ -102,8 +103,8 @@
               </div>
               <label class="upload-drop" for="learn-image-input" id="learn-upload-drop">
                 <input id="learn-image-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-                <span id="learn-upload-copy">画像を選択</span>
-                <small>PNG / JPEG / WebP</small>
+                <span id="learn-upload-copy">画像を選択 またはドロップ</span>
+                <small>PNG / JPEG / WebP · 最大20MB</small>
               </label>
               <div id="learn-image-wrap" class="learn-image-wrap" hidden>
                 <img id="learn-image-preview" alt="Uploaded learning reference">
