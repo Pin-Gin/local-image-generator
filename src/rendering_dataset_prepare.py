@@ -105,6 +105,7 @@ def _assign_incoming(
     item_ids: list[str],
     sequential: bool,
     start_id: int,
+    occupied_ids: set[str],
 ) -> tuple[dict[str, list[Path]], list[Path]]:
     valid_ids = set(item_ids)
     assignments: dict[str, list[Path]] = defaultdict(list)
@@ -121,7 +122,9 @@ def _assign_incoming(
         remaining = [
             item_id
             for item_id in item_ids
-            if int(item_id) >= start_id and not assignments.get(item_id)
+            if int(item_id) >= start_id
+            and item_id not in occupied_ids
+            and not assignments.get(item_id)
         ]
         ordered = sorted(
             untagged,
@@ -129,7 +132,7 @@ def _assign_incoming(
         )
         if len(ordered) > len(remaining):
             raise ValueError(
-                f"sequential import has {len(ordered)} untagged images but only {len(remaining)} manifest slots remain from {start_id:04d}"
+                f"sequential import has {len(ordered)} untagged images but only {len(remaining)} empty manifest slots remain from {start_id:04d}"
             )
         for item_id, image in zip(remaining, ordered):
             assignments[item_id].append(image)
@@ -162,7 +165,16 @@ def prepare_dataset(
 
     incoming_dir.mkdir(parents=True, exist_ok=True)
     dataset_dir.mkdir(parents=True, exist_ok=True)
-    assignments, untagged = _assign_incoming(incoming_dir, item_ids, sequential, start_id)
+    occupied_ids = {
+        item_id for item_id in item_ids if _existing_images(dataset_dir, item_id)
+    }
+    assignments, untagged = _assign_incoming(
+        incoming_dir,
+        item_ids,
+        sequential,
+        start_id,
+        occupied_ids,
+    )
 
     errors: list[str] = []
     missing: list[str] = []
@@ -229,14 +241,9 @@ def prepare_dataset(
         return 1
 
     hash_to_ids: dict[str, list[str]] = defaultdict(list)
-    if not dry_run:
-        for item_id, image in final_images.items():
-            if image.is_file():
-                hash_to_ids[_sha256(image)].append(item_id)
-    else:
-        for item_id, image in final_images.items():
-            if image.is_file():
-                hash_to_ids[_sha256(image)].append(item_id)
+    for item_id, image in final_images.items():
+        if image.is_file():
+            hash_to_ids[_sha256(image)].append(item_id)
 
     duplicates = [ids for ids in hash_to_ids.values() if len(ids) > 1]
     if duplicates:
@@ -271,7 +278,7 @@ def main() -> int:
     parser.add_argument(
         "--sequential",
         action="store_true",
-        help="Assign untagged incoming images by file modification time to remaining manifest IDs",
+        help="Assign untagged incoming images by file modification time to empty manifest IDs",
     )
     parser.add_argument(
         "--start-id",
