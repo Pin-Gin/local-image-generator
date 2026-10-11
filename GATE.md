@@ -1,6 +1,6 @@
 # MEMORIELA Local Image Generator — Production Gates
 
-Status: **ACTIVE / G0–G3 VERIFIED**
+Status: **ACTIVE / G0–G4 VERIFIED**
 
 ## Gate principle
 
@@ -72,7 +72,7 @@ This G3 PASS verifies the current working-Master compilation path only. It does 
 
 ## G4 — Manifest and Output Integrity
 
-**Status: NEXT**
+**Status: PASS — locally verified**
 
 PASS requires:
 
@@ -81,7 +81,21 @@ PASS requires:
 - manifest records effective parameters and source identifiers
 - output and manifest can be associated unambiguously
 
+Verified G4 run:
+
+- generation id: `20261011T004449955189Z`
+- ComfyUI prompt id: `d6088d86-1520-4f0f-86cc-a6eaef9aaead`
+- output SHA-256: `e78d3f41078fa572d1e179bc35d546bbf9a5201996c155d95d20dc9ea17f9f26`
+- manifest SHA-256: `2b6888063b9f4685124b7847402aada46275aa653dfae4fd05a98cbc3a87043c`
+- authority commit: `da167885779897d6b643d19218183e035bdbcfd5`
+- profile SHA-256: `c224477d71e6535ec263b62c90c557fd9a2b9deb4dfe36d1dde6f542616f8636`
+- compiled workflow SHA-256: `c879a1e46f62c3be987def3cb227dd24c968ddded1501685bacb6d9da41f6cdc`
+
+The generated image and its `manifest.json` were stored under the same generation-specific output directory, establishing an unambiguous one-to-one association for this run.
+
 ## G5 — SQLite History / Lookup
+
+**Status: NEXT**
 
 PASS requires:
 
@@ -116,4 +130,5 @@ PASS requires:
 - G1 Local Core Bootstrap: PASS
 - G2 ComfyUI Connectivity: PASS
 - G3 Authority / Profile Compilation: PASS
-- G4 Manifest and Output Integrity: NEXT
+- G4 Manifest and Output Integrity: PASS
+- G5 SQLite History / Lookup: NEXT
