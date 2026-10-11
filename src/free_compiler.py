@@ -52,6 +52,10 @@ def _normalize_comfy_checkpoint_name(value: str) -> str:
     return value.replace("/", "\\")
 
 
+def _normalize_comfy_controlnet_name(value: str) -> str:
+    return value.replace("/", "\\")
+
+
 def _weighted_prompt(text: str, strength: float) -> str:
     stripped = text.strip()
     if not stripped:
@@ -84,6 +88,54 @@ def _validate_lora(value: Any, field_name: str, *, allow_none: bool = False) -> 
         "strength_model": float(strength_model),
         "strength_clip": float(strength_clip),
     }
+
+
+def _validate_pose_control(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("FREE pose_control must be an object")
+    enabled = value.get("enabled")
+    if not isinstance(enabled, bool):
+        raise ValueError("FREE pose_control.enabled must be boolean")
+    if not enabled:
+        return {"enabled": False}
+
+    if value.get("backend") != "dwpose":
+        raise ValueError("FREE pose_control.backend must be dwpose")
+    source = value.get("source")
+    preprocessor = value.get("preprocessor")
+    controlnet = value.get("controlnet")
+    if not all(isinstance(item, dict) for item in (source, preprocessor, controlnet)):
+        raise ValueError("FREE pose_control sections are incomplete")
+
+    input_name = source.get("input_name")
+    if not isinstance(input_name, str) or not input_name.strip():
+        raise ValueError("FREE pose_control.source.input_name must be non-empty")
+
+    for key in ("detect_hand", "detect_body", "detect_face", "scale_stick_for_xinsr_cn"):
+        if not isinstance(preprocessor.get(key), bool):
+            raise ValueError(f"FREE pose_control.preprocessor.{key} must be boolean")
+    resolution = preprocessor.get("resolution")
+    if not isinstance(resolution, int) or isinstance(resolution, bool) or resolution <= 0:
+        raise ValueError("FREE pose_control.preprocessor.resolution must be a positive integer")
+    for key in ("bbox_detector", "pose_estimator"):
+        if not isinstance(preprocessor.get(key), str) or not preprocessor.get(key).strip():
+            raise ValueError(f"FREE pose_control.preprocessor.{key} must be non-empty")
+
+    model = controlnet.get("model")
+    strength = controlnet.get("strength")
+    start_percent = controlnet.get("start_percent")
+    end_percent = controlnet.get("end_percent")
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("FREE pose_control.controlnet.model must be non-empty")
+    for key, number in (
+        ("strength", strength),
+        ("start_percent", start_percent),
+        ("end_percent", end_percent),
+    ):
+        if not isinstance(number, (int, float)) or isinstance(number, bool):
+            raise ValueError(f"FREE pose_control.controlnet.{key} must be numeric")
+
+    return value
 
 
 def compile_free_generation(
@@ -128,8 +180,7 @@ def compile_free_generation(
     if not isinstance(lineart_enabled, bool):
         raise ValueError("FREE conditioning.lineart.enabled must be boolean")
 
-    if pose_control.get("enabled") is not False:
-        raise ValueError("pose control is not implemented in this compiler stage")
+    validated_pose = _validate_pose_control(pose_control)
     for stage in ("inpaint", "detailer", "upscale"):
         stage_cfg = postprocess.get(stage)
         if not isinstance(stage_cfg, dict) or stage_cfg.get("enabled") is not False:
@@ -250,6 +301,51 @@ def compile_free_generation(
         lineart_negative if lineart_enabled else "",
     )
     workflow["6"]["inputs"]["clip"] = clip_ref
+    negative_ref: list[Any] = ["6", 0]
+
+    if validated_pose.get("enabled") is True:
+        source = validated_pose["source"]
+        preprocessor = validated_pose["preprocessor"]
+        controlnet = validated_pose["controlnet"]
+        workflow["20"] = {
+            "class_type": "LoadImage",
+            "inputs": {
+                "image": source["input_name"],
+            },
+        }
+        workflow["21"] = {
+            "class_type": "DWPreprocessor",
+            "inputs": {
+                "image": ["20", 0],
+                "detect_hand": "enable" if preprocessor["detect_hand"] else "disable",
+                "detect_body": "enable" if preprocessor["detect_body"] else "disable",
+                "detect_face": "enable" if preprocessor["detect_face"] else "disable",
+                "resolution": preprocessor["resolution"],
+                "bbox_detector": preprocessor["bbox_detector"],
+                "pose_estimator": preprocessor["pose_estimator"],
+                "scale_stick_for_xinsr_cn": "enable" if preprocessor["scale_stick_for_xinsr_cn"] else "disable",
+            },
+        }
+        workflow["22"] = {
+            "class_type": "ControlNetLoader",
+            "inputs": {
+                "control_net_name": _normalize_comfy_controlnet_name(controlnet["model"]),
+            },
+        }
+        workflow["23"] = {
+            "class_type": "ControlNetApplyAdvanced",
+            "inputs": {
+                "positive": positive_ref,
+                "negative": negative_ref,
+                "control_net": ["22", 0],
+                "image": ["21", 0],
+                "strength": float(controlnet["strength"]),
+                "start_percent": float(controlnet["start_percent"]),
+                "end_percent": float(controlnet["end_percent"]),
+            },
+        }
+        positive_ref = ["23", 0]
+        negative_ref = ["23", 1]
 
     sampler = workflow["7"]["inputs"]
     sampler["seed"] = seed
@@ -260,6 +356,7 @@ def compile_free_generation(
     sampler["denoise"] = float(denoise)
     sampler["model"] = model_ref
     sampler["positive"] = positive_ref
+    sampler["negative"] = negative_ref
     workflow["9"]["inputs"]["filename_prefix"] = filename_prefix.strip()
 
     compiled_bytes = _canonical_json_bytes(workflow)
