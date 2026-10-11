@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from chat_contract import build_generation_request
+from chat_contract import MAX_SEED, build_generation_request
 from generation_bridge import build_generation_plan
 
 
@@ -11,14 +11,27 @@ ROOT = Path(__file__).resolve().parent.parent
 INTENT_ROOT = ROOT / "intent"
 PROFILES_ROOT = ROOT / "profiles"
 CACHE_ROOT = ROOT / "cache"
+TEXT = "ゆらを白背景で正面立ち、服装と髪型はマスターと同じ、落ち着いた表情、2Dアニメ調で"
+PROFILE = "yura-working-master-g3"
+
+
+def assert_plan_seed(request: dict[str, object], expected_seed: int) -> Path:
+    plan_path = build_generation_plan(ROOT, request, PROFILES_ROOT, CACHE_ROOT)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    actual_seed = plan["workflow"]["seed"]
+    if actual_seed != expected_seed:
+        raise AssertionError(f"seed mismatch expected={expected_seed} actual={actual_seed}")
+    return plan_path
 
 
 def main() -> int:
     request = build_generation_request(
-        "ゆらを白背景で正面立ち、服装と髪型はマスターと同じ、落ち着いた表情、2Dアニメ調で",
-        "yura-working-master-g3",
+        TEXT,
+        PROFILE,
         source="cli",
         dictionary_root=INTENT_ROOT,
+        seed_mode="FIXED",
+        seed=12345,
     )
     expected_intent = {
         "character": "YURA",
@@ -35,7 +48,7 @@ def main() -> int:
                 f"intent mismatch key={key} expected={value} actual={request['intent'].get(key)}"
             )
 
-    plan_path = build_generation_plan(ROOT, request, PROFILES_ROOT, CACHE_ROOT)
+    plan_path = assert_plan_seed(request, 12345)
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     positive = plan["prompt"]["positive"]
 
@@ -58,10 +71,24 @@ def main() -> int:
     if context.get("request_id") != request["request_id"]:
         raise AssertionError("generation plan request_id mismatch")
 
+    random_request = build_generation_request(
+        TEXT,
+        PROFILE,
+        source="cli",
+        dictionary_root=INTENT_ROOT,
+        seed_mode="RANDOM",
+    )
+    random_seed = random_request["options"]["seed"]
+    if not isinstance(random_seed, int) or random_seed < 0 or random_seed > MAX_SEED:
+        raise AssertionError(f"invalid random seed: {random_seed}")
+    assert_plan_seed(random_request, random_seed)
+
     print("[GENERATION_PLAN:OK]")
     print(f"request_id={request['request_id']}")
     print(f"plan={plan_path}")
     print(f"intent={request['intent']}")
+    print(f"fixed_seed={request['options']['seed']}")
+    print(f"random_seed={random_seed}")
     print(f"effective_positive={positive}")
     return 0
 
