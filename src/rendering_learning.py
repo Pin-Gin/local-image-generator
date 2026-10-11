@@ -48,7 +48,7 @@ def _reject_placeholder(value: str, context: str) -> None:
         raise ValueError(f"{context} is not configured: {value}")
 
 
-def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
+def _validate_training_config(config: dict[str, Any]) -> dict[str, Any]:
     if config.get("schema_version") != 1:
         raise ValueError("training config schema_version must be 1")
 
@@ -119,6 +119,27 @@ def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
         "comfy_lora_dir_value": comfy_lora_dir_value,
         "comfy_lora_name": comfy_lora_name.replace("\\", "/"),
         "training": training,
+    }
+
+
+def _validate_publish_config(config: dict[str, Any]) -> dict[str, Any]:
+    if config.get("schema_version") != 1:
+        raise ValueError("training config schema_version must be 1")
+
+    model = _require_dict(config, "model")
+    output = _require_dict(config, "output")
+
+    output_name = _require_string(model, "output_name", "model")
+    output_dir_value = _require_string(output, "directory", "output")
+    comfy_lora_dir_value = _require_string(output, "comfyui_lora_directory", "output")
+    comfy_lora_name = _require_string(output, "comfyui_lora_name", "output")
+    _reject_placeholder(comfy_lora_dir_value, "output.comfyui_lora_directory")
+
+    return {
+        "output_name": output_name,
+        "output_dir": _resolve_path(output_dir_value),
+        "comfy_lora_dir_value": comfy_lora_dir_value,
+        "comfy_lora_name": comfy_lora_name.replace("\\", "/"),
     }
 
 
@@ -214,7 +235,6 @@ def publish_lora(settings: dict[str, Any], activate: bool) -> Path:
         raise FileNotFoundError(f"trained LoRA not found: {source}")
 
     comfy_lora_dir_value = settings["comfy_lora_dir_value"]
-    _reject_placeholder(comfy_lora_dir_value, "output.comfyui_lora_directory")
     comfy_lora_root = _resolve_path(comfy_lora_dir_value)
     destination = comfy_lora_root / Path(settings["comfy_lora_name"])
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -240,9 +260,11 @@ def publish_lora(settings: dict[str, Any], activate: bool) -> Path:
     return destination
 
 
-def _load_settings(config_path: Path) -> dict[str, Any]:
+def _load_settings(config_path: Path, command: str) -> dict[str, Any]:
     config = _load_json(config_path)
-    return _validate_config(config)
+    if command == "publish":
+        return _validate_publish_config(config)
+    return _validate_training_config(config)
 
 
 def main() -> int:
@@ -257,7 +279,7 @@ def main() -> int:
 
     args = parser.parse_args()
     config_path = args.config if args.config.is_absolute() else (ROOT / args.config)
-    settings = _load_settings(config_path.resolve())
+    settings = _load_settings(config_path.resolve(), args.command)
 
     if args.command == "validate":
         images = validate_dataset(settings)
