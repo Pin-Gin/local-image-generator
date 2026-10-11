@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "trainer": {
+    "repo": "C:/Dev/sd-scripts",
+    "python_executable": "python"
+  },
+  "model": {
+    "pretrained_model_name_or_path": "SET_LOCAL_PATH_TO_SDXL_BASE",
+    "output_name": "matte_dimensional_anime_v1"
+  },
+  "dataset": {
+    "train_data_dir": "learning/rendering/dataset",
+    "caption_extension": ".txt",
+    "minimum_images": 20,
+    "trigger_token": "mdanime_style"
+  },
+  "output": {
+    "directory": "learning/rendering/output",
+    "comfyui_lora_directory": "SET_LOCAL_COMFYUI_MODELS_LORAS_DIRECTORY",
+    "comfyui_lora_name": "local-rag/rendering/matte_dimensional_anime_v1.safetensors"
+  },
+  "training": {
+    "resolution": "1024,1024",
+    "network_dim": 32,
+    "network_alpha": 16,
+    "learning_rate": "1e-4",
+    "max_train_epochs": 10,
+    "train_batch_size": 1,
+    "mixed_precision": "bf16",
+    "seed": 42
+  }
+}
