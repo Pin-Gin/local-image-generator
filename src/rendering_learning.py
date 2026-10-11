@@ -4,7 +4,6 @@ import argparse
 import json
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +58,8 @@ def _validate_training_config(config: dict[str, Any]) -> dict[str, Any]:
     training = _require_dict(config, "training")
 
     trainer_repo_value = _require_string(trainer, "repo", "trainer")
-    python_executable = _require_string(trainer, "python_executable", "trainer")
+    python_value = _require_string(trainer, "python_executable", "trainer")
+    accelerate_config_value = _require_string(trainer, "accelerate_config", "trainer")
     pretrained_value = _require_string(model, "pretrained_model_name_or_path", "model")
     output_name = _require_string(model, "output_name", "model")
     train_data_value = _require_string(dataset, "train_data_dir", "dataset")
@@ -73,12 +73,18 @@ def _validate_training_config(config: dict[str, Any]) -> dict[str, Any]:
 
     trainer_repo = _resolve_path(trainer_repo_value)
     trainer_script = trainer_repo / "sdxl_train_network.py"
+    python_executable = _resolve_path(python_value)
+    accelerate_config = _resolve_path(accelerate_config_value)
     pretrained_model = _resolve_path(pretrained_value)
     train_data_dir = _resolve_path(train_data_value)
     output_dir = _resolve_path(output_dir_value)
 
     if not trainer_script.is_file():
         raise FileNotFoundError(f"sd-scripts trainer not found: {trainer_script}")
+    if not python_executable.is_file():
+        raise FileNotFoundError(f"trainer Python not found: {python_executable}")
+    if not accelerate_config.is_file():
+        raise FileNotFoundError(f"accelerate config not found: {accelerate_config}")
     if not pretrained_model.is_file():
         raise FileNotFoundError(f"SDXL base model not found: {pretrained_model}")
     if not train_data_dir.is_dir():
@@ -108,7 +114,8 @@ def _validate_training_config(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "trainer_repo": trainer_repo,
         "trainer_script": trainer_script,
-        "python_executable": python_executable,
+        "python_executable": str(python_executable),
+        "accelerate_config": accelerate_config,
         "pretrained_model": pretrained_model,
         "output_name": output_name,
         "train_data_dir": train_data_dir,
@@ -192,6 +199,7 @@ def build_training_command(settings: dict[str, Any]) -> list[str]:
         settings["python_executable"],
         "-m",
         "accelerate.commands.launch",
+        f"--config_file={settings['accelerate_config']}",
         "--num_cpu_threads_per_process=1",
         str(settings["trainer_script"]),
         f"--pretrained_model_name_or_path={settings['pretrained_model']}",
@@ -285,6 +293,7 @@ def main() -> int:
         images = validate_dataset(settings)
         print(f"[LEARNING:OK] dataset_images={len(images)}")
         print(f"[LEARNING:OK] trainer={settings['trainer_script']}")
+        print(f"[LEARNING:OK] python={settings['python_executable']}")
         print(f"[LEARNING:OK] model={settings['pretrained_model']}")
         return 0
 
