@@ -6,7 +6,7 @@
   "keep_alive": "5m",
   "roles": {
     "learn": {
-      "model": "qwen3-vl:8b",
+      "model": "qwen3-vl:8b-instruct",
       "vision": true,
       "think": false,
       "system_prompt": "You are the local-RAG learning assistant. Work only from the user's instructions and the images/content provided in the current request. Distinguish inference-time reference use from persistent training. For uploaded images, analyze pose, hand/anatomy, expression, outfit, character identity, background, camera, and rendering as separate concerns. Do not silently decide what should be learned. State detected candidates and wait for explicit acceptance before any future dataset registration step."
