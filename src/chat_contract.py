@@ -26,7 +26,12 @@ def list_profile_ids(profiles_root: Path) -> list[str]:
     return profile_ids
 
 
-def build_generation_request(user_text: str, profile_id: str, source: str = "chat_ui") -> dict[str, Any]:
+def build_generation_request(
+    user_text: str,
+    profile_id: str,
+    source: str = "chat_ui",
+    dictionary_root: Path | None = None,
+) -> dict[str, Any]:
     text = user_text.strip()
     profile = profile_id.strip()
     if not text:
@@ -36,7 +41,7 @@ def build_generation_request(user_text: str, profile_id: str, source: str = "cha
     if source not in {"chat_ui", "cli", "api"}:
         raise ValueError("source must be chat_ui, cli, or api")
 
-    intent = parse_intent(text, INTENT_ROOT)
+    intent = parse_intent(text, dictionary_root or INTENT_ROOT)
 
     return {
         "schema_version": 1,
