@@ -73,22 +73,42 @@ class FakeClient:
         return SimpleNamespace(model="fake-selector", content=self.response)
 
 
-def test_ai_selection() -> None:
+class FailIfCalledClient:
+    def chat(self, *args, **kwargs):
+        raise AssertionError("FREE generation must not call local AI")
+
+
+def test_free_bypasses_local_ai() -> None:
     registry = _test_registry()
     selection = select_assets_with_local_ai(
-        FakeClient('{"selected_asset_ids":["pose-hair-touch-v1"],"reason":"pose match"}'),
+        FailIfCalledClient(),
         registry,
         user_text="髪に片手を添えて立っている女性",
         generation_domain="free",
     )
+    assert selection.selected_asset_ids == ()
+    assert selection.selector == "deterministic-free"
+    assert selection.selector_role == "none"
+    assert selection.selector_model == "none"
+
+
+def test_memoriela_ai_selection() -> None:
+    registry = _test_registry()
+    selection = select_assets_with_local_ai(
+        FakeClient('{"selected_asset_ids":["pose-hair-touch-v1"],"reason":"pose match"}'),
+        registry,
+        user_text="ゆらが髪に片手を添えて立っている",
+        generation_domain="memoriela",
+    )
     assert selection.selected_asset_ids == ("pose-hair-touch-v1",)
     assert selection.registry_version == 7
     assert selection.selector_model == "fake-selector"
+    assert selection.selector == "local-ai"
 
     resolved = resolve_selected_assets(
         registry,
         selected_asset_ids=list(selection.selected_asset_ids),
-        generation_domain="free",
+        generation_domain="memoriela",
     )
     assert resolved[0]["runtime"]["type"] == "lora"
 
@@ -99,8 +119,8 @@ def test_unknown_asset_rejected() -> None:
         select_assets_with_local_ai(
             FakeClient('{"selected_asset_ids":["invented-id"],"reason":"bad"}'),
             registry,
-            user_text="test",
-            generation_domain="free",
+            user_text="ゆらのテスト",
+            generation_domain="memoriela",
         )
     except ValueError as exc:
         assert "unknown/ineligible" in str(exc)
@@ -165,10 +185,12 @@ def test_lora_chain() -> None:
 
 
 def main() -> int:
-    test_ai_selection()
+    test_free_bypasses_local_ai()
+    test_memoriela_ai_selection()
     test_unknown_asset_rejected()
     test_lora_chain()
     print("[LEARNED-GENERATION:TEST:OK]")
+    print("[FREE:AI-BYPASS:OK]")
     return 0
 
 
