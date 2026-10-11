@@ -1,0 +1,23 @@
+{
+  "app": {
+    "name": "MEMORIELA Local Image Generator",
+    "environment": "development"
+  },
+  "comfyui": {
+    "base_url": "http://127.0.0.1:8188"
+  },
+  "paths": {
+    "database": "database/memoriela_local.db",
+    "profiles": "profiles",
+    "workflows": "workflows",
+    "cache": "cache",
+    "outputs": "outputs",
+    "logs": "logs"
+  },
+  "source_repositories": {
+    "memoriela": {
+      "repository": "Pin-Gin/MEMORIELA",
+      "branch": "main"
+    }
+  }
+}
