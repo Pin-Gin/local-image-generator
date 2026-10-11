@@ -8,6 +8,8 @@ const jsonButton = document.getElementById('json-button');
 const generationStatus = document.getElementById('generation-status');
 const generatedImage = document.getElementById('generated-image');
 const generationMeta = document.getElementById('generation-meta');
+const seedModeSelect = document.getElementById('seed-mode');
+const seedValueInput = document.getElementById('seed-value');
 
 function addMessage(text, role) {
   const node = document.createElement('div');
@@ -51,28 +53,49 @@ async function loadProfiles() {
 function currentInput() {
   const userText = promptInput.value.trim();
   const profileId = profileSelect.value;
+  const seedMode = seedModeSelect.value;
   if (!userText) throw new Error('生成内容を入力してください。');
   if (!profileId) throw new Error('Profileを選択してください。');
-  return {userText, profileId};
+
+  let seed = null;
+  if (seedMode === 'FIXED') {
+    const raw = seedValueInput.value.trim();
+    if (!/^\d+$/.test(raw)) throw new Error('Fixed Seedは0以上の整数を入力してください。');
+    seed = Number(raw);
+    if (!Number.isSafeInteger(seed) || seed < 0) {
+      throw new Error('Fixed SeedはJavaScriptで安全に扱える0以上の整数を入力してください。');
+    }
+  }
+
+  return {userText, profileId, seedMode, seed};
 }
 
-async function postChat(path, userText, profileId) {
+async function postChat(path, input) {
   const response = await fetch(path, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({user_text: userText, profile_id: profileId}),
+    body: JSON.stringify({
+      user_text: input.userText,
+      profile_id: input.profileId,
+      seed_mode: input.seedMode,
+      seed: input.seed,
+    }),
   });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
   return payload;
 }
 
+seedModeSelect.addEventListener('change', () => {
+  seedValueInput.disabled = seedModeSelect.value !== 'FIXED';
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   try {
-    const {userText, profileId} = currentInput();
-    addMessage(userText, 'user');
-    const payload = await postChat('/api/chat/request', userText, profileId);
+    const input = currentInput();
+    addMessage(input.userText, 'user');
+    const payload = await postChat('/api/chat/request', input);
     jsonPreview.textContent = JSON.stringify(payload.request, null, 2);
     addMessage(describeIntent(payload.request.intent), 'assistant');
   } catch (error) {
@@ -89,8 +112,7 @@ generateButton.addEventListener('click', async () => {
     return;
   }
 
-  const {userText, profileId} = input;
-  addMessage(userText, 'user');
+  addMessage(input.userText, 'user');
   generationStatus.textContent = '生成中...';
   generationMeta.textContent = '';
   generatedImage.hidden = true;
@@ -98,14 +120,17 @@ generateButton.addEventListener('click', async () => {
   generateButton.disabled = true;
 
   try {
-    const payload = await postChat('/api/chat/generate', userText, profileId);
+    const payload = await postChat('/api/chat/generate', input);
     jsonPreview.textContent = JSON.stringify(payload.request, null, 2);
     const generation = payload.generation;
     generatedImage.src = `${generation.output_url}?t=${Date.now()}`;
     generatedImage.hidden = false;
     generationStatus.textContent = `生成完了: ${generation.generation_id}`;
     generationMeta.textContent = JSON.stringify(generation, null, 2);
-    addMessage(`画像を生成しました。generation_id=${generation.generation_id}`, 'assistant');
+    addMessage(
+      `画像を生成しました。generation_id=${generation.generation_id}, seed=${generation.seed}`,
+      'assistant',
+    );
   } catch (error) {
     generationStatus.textContent = '生成失敗';
     addMessage(`生成エラー: ${error.message}`, 'system');
