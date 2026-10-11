@@ -14,7 +14,7 @@ Rules:
 
 - `part_id`: lowercase ASCII, digits, `.`, `_`, `-`; no `/` or path separators.
 - `version`: positive integer.
-- A changed payload creates a new version; do not overwrite an accepted older version.
+- A changed canonical payload should create a new version rather than silently overwriting an accepted older version.
 - Generation records store the exact resolved reference.
 
 Examples:
@@ -51,11 +51,11 @@ part:outfit.school-uniform-summer@3
 }
 ```
 
-Canonical documents keep their own identity/status inside the JSON and remain the preferred format for application-managed persistence and Oracle indexing.
+Canonical documents keep their identity/status inside the JSON and remain the preferred format for application-managed persistence and Oracle indexing.
 
 ## 3. Manual structured JSON compatibility
 
-Files manually placed in the accepted `json-parts` directory may also use a simpler structured JSON shape without the canonical `local-rag/json-part` wrapper.
+Files manually placed in the accepted `json-parts` directory may use a simpler structured JSON shape without the canonical `local-rag/json-part` wrapper.
 
 Example:
 
@@ -81,28 +81,51 @@ Example:
 
 For this manual compatibility path:
 
-- the canonical identity/version comes from the filename and requested ref;
+- identity/version comes from the filename and requested ref;
 - `anime_pose_hair_touch.v1.json` resolves as `part:anime_pose_hair_touch@1`;
-- when `file_name` exists inside the JSON, it must match the actual canonical filename (case-insensitive);
-- `description` becomes display metadata only and is not injected into the generation prompt;
-- nested structured scalar values are deterministically flattened into the positive generation prompt;
-- optional top-level `positive` overrides automatic flattening;
+- when `file_name` exists inside the JSON, it must match the actual canonical filename case-insensitively;
+- `description` becomes display metadata only and is not injected into generation content;
+- UTF-8 BOM-prefixed files are accepted;
+- a whole-file Markdown fence such as ` ```json ... ``` ` is accepted;
+- the source file is never rewritten by the read path;
+- when no explicit top-level `positive` exists, nested scalar content is linearized into the internal positive prompt using **dotted hierarchy paths**;
+- original scalar values, traversal order, and duplicate leaves are retained;
+- optional top-level `positive` overrides automatic hierarchy linearization;
 - optional top-level `negative` or `negative_prompt` becomes the negative generation prompt;
-- the file is considered generation-eligible only because it physically lives in the accepted `json-parts` store;
-- the loader does not rewrite the manual file and does not automatically register it into Oracle.
+- the file is generation-eligible because it physically lives in the accepted `json-parts` store;
+- the loader does not automatically register a manual compatibility file into Oracle.
 
-The strict canonical schema is still required for the explicit `Part登録` / `Part採用` API path. Manual compatibility is a generation-read feature, not a relaxation of the persistent-write contract.
+Example conversion:
+
+```json
+{
+  "pose": {
+    "body": {
+      "state": "nude"
+    },
+    "expression": "smiling"
+  }
+}
+```
+
+becomes an internal positive string containing:
+
+```text
+pose.body.state: nude, pose.expression: smiling
+```
+
+The strict canonical schema is still required for the explicit application-managed `Part登録` / `Part採用` persistence path. Manual compatibility is a generation-read feature, not a relaxation of the canonical persistence contract.
 
 ## 4. Generation reuse
 
-The first implemented reusable payload is `payload.generation` for canonical parts:
+Canonical parts currently expose `payload.generation`:
 
-- `positive`: appended to the positive generation prompt.
-- `negative`: appended to the negative generation prompt.
+- `positive`: appended/combined with positive generation content.
+- `negative`: appended/combined with negative generation content.
 
 Manual structured parts are converted at read time into the same internal positive/negative representation.
 
-Generation JSON references parts through `parts`:
+Generation JSON references exact parts through `parts`:
 
 ```json
 {
@@ -114,7 +137,13 @@ Generation JSON references parts through `parts`:
 }
 ```
 
-For a manually stored file named `anime_pose_hair_touch.v1.json`:
+Manual file example:
+
+```text
+learning/local-ai/store/json-parts/anime_pose_hair_touch.v1.json
+```
+
+is referenced as:
 
 ```json
 {
@@ -125,7 +154,9 @@ For a manually stored file named `anime_pose_hair_touch.v1.json`:
 }
 ```
 
-Other payload sections may be added later for ControlNet, LoRA, character identity, outfit adapters, backgrounds, or camera controls. They must be versioned and explicitly implemented before the runtime may use them.
+Current `chat_contract.py` resolves explicit `parts` references and merges their internal positive/negative strings into `prompt_input`.
+
+Important: automatic selection of JSON Parts from the directory is **not** current behavior. A Part is used only when the request explicitly references it, unless a future design explicitly adds another selection mechanism.
 
 ## 5. Storage
 
@@ -135,17 +166,19 @@ Accepted local files:
 learning/local-ai/store/json-parts/<part_id>.v<version>.json
 ```
 
-Example:
+Staging files:
 
 ```text
-learning/local-ai/store/json-parts/pose.hair-touch.v1.json
+learning/local-ai/store/staging/<part_id>.v<version>.json
 ```
 
-Canonical accepted parts may also be mirrored/indexed in Oracle table `LR_JSON_PART`. Manual structured compatibility files are read directly from the accepted local file store unless separately converted/registered through the canonical persistence path.
+Canonical accepted parts may also be mirrored/indexed in Oracle table `LR_JSON_PART`.
+
+Manual structured compatibility files are local-file generation assets unless they are separately converted/registered through the canonical persistence path.
 
 ## 6. Local read verification
 
-To verify a local part without starting ComfyUI:
+Verify a Part without starting ComfyUI:
 
 ```powershell
 .\tools\python312\python.exe .\src\json_part_read_test.py --ref part:anime_pose_hair_touch@1
@@ -156,3 +189,15 @@ Expected first line:
 ```text
 [JSON-PART:READ:OK] ref=part:anime_pose_hair_touch@1
 ```
+
+This verifies resolution and internal positive/negative conversion only. It does not by itself prove the full desktop -> compiler -> ComfyUI generation path.
+
+## 7. Current architecture note
+
+The current target architecture is recorded in:
+
+```text
+docs/handoff/LOCAL_RAG_HANDOFF.md
+```
+
+FREE generation is being moved toward deterministic JSON Part consumption without Qwen pre-generation interpretation/asset selection. MEMORIELA and LEARN retain local-AI responsibilities.
