@@ -15,6 +15,7 @@
     "shared": "shared",
     "domains": "domains",
     "learning": "learning",
+    "models": "models",
     "cache": "cache",
     "outputs": "outputs",
     "logs": "logs"
