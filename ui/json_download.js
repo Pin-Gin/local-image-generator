@@ -55,6 +55,34 @@
     URL.revokeObjectURL(url);
   }
 
+  async function registerJsonPart(value, button) {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = '登録中...';
+    try {
+      const response = await fetch('/api/knowledge/json-part', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({document: value}),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+      const result = payload.json_part;
+      button.textContent = result?.oracle_indexed ? 'Part登録済み' : 'Part保存済み';
+      button.title = result?.oracle_indexed
+        ? `${result.ref} をファイル保存しOracleへ索引登録しました`
+        : `${result?.ref || 'JSON part'} をファイル保存しました。Oracleは未索引です`;
+    } catch (error) {
+      button.textContent = '登録失敗';
+      button.title = error.message;
+    } finally {
+      window.setTimeout(() => {
+        button.disabled = false;
+        if (!button.textContent.includes('済み')) button.textContent = original;
+      }, 2200);
+    }
+  }
+
   window.appendChatMessage = function appendChatMessageWithJsonDownload(container, role, text, imageUrl = null) {
     originalAppend(container, role, text, imageUrl);
     if (role !== 'assistant') return;
@@ -73,5 +101,20 @@
     button.title = 'JSONをファイルとして保存';
     button.addEventListener('click', () => downloadJson(value));
     roleRow.appendChild(button);
+
+    if (
+      !Array.isArray(value)
+      && value.document_type === 'local-rag/json-part'
+      && typeof value.part_id === 'string'
+      && Number.isInteger(value.version)
+    ) {
+      const registerButton = document.createElement('button');
+      registerButton.className = 'copy-message-button json-register-button';
+      registerButton.type = 'button';
+      registerButton.textContent = 'Part登録';
+      registerButton.title = 'このJSON Partをlocal-RAGの永続ストアへ登録';
+      registerButton.addEventListener('click', () => registerJsonPart(value, registerButton));
+      roleRow.appendChild(registerButton);
+    }
   };
 })();
