@@ -68,7 +68,9 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def _append_prompt(base: str, additions: list[str]) -> str:
-    parts = [base.strip()]
+    parts: list[str] = []
+    if base.strip():
+        parts.append(base.strip())
     for value in additions:
         text = value.strip()
         if text and text not in parts:
@@ -118,8 +120,12 @@ def build_generation_plan(
     derived = copy.deepcopy(base_profile)
 
     base_prompt = derived.get("prompt")
+    workflow = derived.get("workflow")
     if not isinstance(base_prompt, dict):
         raise ValueError("profile.prompt must be an object")
+    if not isinstance(workflow, dict):
+        raise ValueError("profile.workflow must be an object")
+
     positive = base_prompt.get("positive")
     negative = base_prompt.get("negative")
     if not isinstance(positive, str) or not positive.strip():
@@ -138,12 +144,35 @@ def build_generation_plan(
         if fragment is not None:
             fragments.append(fragment)
 
-    derived["prompt"]["positive"] = _append_prompt(
-        positive,
-        [*fragments, freeform_positive],
-    )
-    if isinstance(freeform_negative, str) and freeform_negative.strip():
-        derived["prompt"]["negative"] = _append_prompt(negative, [freeform_negative])
+    is_yura_request = intent.get("character") == "YURA"
+    if is_yura_request:
+        workflow["mode"] = "img2img"
+        derived["prompt"]["positive"] = _append_prompt(
+            positive,
+            [*fragments, freeform_positive],
+        )
+        if isinstance(freeform_negative, str) and freeform_negative.strip():
+            derived["prompt"]["negative"] = _append_prompt(negative, [freeform_negative])
+        generation_mode = "yura_img2img"
+    else:
+        workflow["mode"] = "text2img"
+        workflow["template"] = "workflows/sdxl_text2img_api.json"
+        workflow["denoise"] = 1.0
+        workflow["filename_prefix"] = "MEMORIELA_FREEFORM"
+        generic_fragments = [
+            fragment
+            for category, mapping in INTENT_PROMPT_FRAGMENTS.items()
+            if category != "character"
+            for value in [intent.get(category)]
+            if isinstance(value, str) and (fragment := mapping.get(value)) is not None
+        ]
+        derived["prompt"]["positive"] = _append_prompt("", [*generic_fragments, freeform_positive])
+        derived["prompt"]["negative"] = (
+            freeform_negative.strip()
+            if isinstance(freeform_negative, str) and freeform_negative.strip()
+            else "blurry, low quality"
+        )
+        generation_mode = "generic_text2img"
 
     options = request.get("options")
     if isinstance(options, dict):
@@ -151,7 +180,7 @@ def build_generation_plan(
         if seed is not None:
             if not isinstance(seed, int) or seed < 0:
                 raise ValueError("request.options.seed must be a non-negative integer or null")
-            derived["workflow"]["seed"] = seed
+            workflow["seed"] = seed
 
     derived["request_context"] = {
         "request_id": request.get("request_id"),
@@ -159,6 +188,7 @@ def build_generation_plan(
         "user_text": request.get("user_text"),
         "normalized_intent": intent,
         "prompt_input": prompt_input,
+        "generation_mode": generation_mode,
         "base_profile_path": str(profile_path.relative_to(root)),
         "base_profile_sha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
     }
@@ -200,19 +230,24 @@ def run_chat_generation(
     compiled: CompiledGeneration = compile_generation(root, plan_path, cache_root)
     plan = _load_json(plan_path)
 
-    master_path = plan["authority"]["master_image_path"]
-    master_file = compiled.authority.files[master_path]
-    remote_name = master_file.local_path.name
-    uploaded_name = upload_input_image(
-        base_url=base_url,
-        source=master_file.local_path,
-        remote_name=remote_name,
-        timeout_seconds=request_timeout,
-    )
-    if uploaded_name != remote_name:
-        raise RuntimeError(
-            f"Unexpected ComfyUI upload name: expected={remote_name} actual={uploaded_name}"
+    workflow_cfg = plan.get("workflow")
+    if not isinstance(workflow_cfg, dict):
+        raise ValueError("generation plan workflow must be an object")
+
+    if workflow_cfg.get("mode", "img2img") == "img2img":
+        master_path = plan["authority"]["master_image_path"]
+        master_file = compiled.authority.files[master_path]
+        remote_name = master_file.local_path.name
+        uploaded_name = upload_input_image(
+            base_url=base_url,
+            source=master_file.local_path,
+            remote_name=remote_name,
+            timeout_seconds=request_timeout,
         )
+        if uploaded_name != remote_name:
+            raise RuntimeError(
+                f"Unexpected ComfyUI upload name: expected={remote_name} actual={uploaded_name}"
+            )
 
     generation_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     run_dir = outputs_root / generation_id
@@ -232,6 +267,7 @@ def run_chat_generation(
     manifest_payload["generation_plan"] = {
         "path": str(plan_path),
         "sha256": _sha256_bytes(plan_path.read_bytes()),
+        "mode": workflow_cfg.get("mode", "img2img"),
     }
     manifest_path = run_dir / "manifest.json"
     manifest_sha256 = write_manifest(manifest_path, manifest_payload)
