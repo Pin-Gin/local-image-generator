@@ -42,6 +42,30 @@ def _canonical_json_bytes(payload: Any) -> bytes:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
+def _validate_rendering_lora(profile: dict[str, Any]) -> dict[str, Any] | None:
+    value = profile.get("rendering_lora")
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("profile.rendering_lora must be an object")
+    enabled = value.get("enabled")
+    if not isinstance(enabled, bool):
+        raise ValueError("profile.rendering_lora.enabled must be boolean")
+    if not enabled:
+        return None
+
+    lora_name = value.get("lora_name")
+    strength_model = value.get("strength_model")
+    strength_clip = value.get("strength_clip")
+    if not isinstance(lora_name, str) or not lora_name.strip():
+        raise ValueError("profile.rendering_lora.lora_name must be a non-empty string")
+    if not isinstance(strength_model, (int, float)):
+        raise ValueError("profile.rendering_lora.strength_model must be numeric")
+    if not isinstance(strength_clip, (int, float)):
+        raise ValueError("profile.rendering_lora.strength_clip must be numeric")
+    return value
+
+
 def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> CompiledGeneration:
     profile = _read_json(profile_path)
     profile_sha256 = _sha256_file(profile_path)
@@ -57,8 +81,8 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
     if mode not in {"img2img", "text2img"}:
         raise ValueError("profile.workflow.mode must be img2img or text2img")
 
-    # Only character-reference img2img generations need MEMORIELA authority.
-    # Generic text2img must stay fully local and must not call GitHub.
+    # Only MEMORIELA reference generation needs remote authority.
+    # FREE text2img remains fully local.
     authority: AuthorityBundle | None = None
     if mode == "img2img":
         authority = resolve_authority_bundle(profile, cache_root)
@@ -92,6 +116,8 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
     if not isinstance(negative, str):
         raise ValueError("profile.prompt.negative must be a string")
 
+    rendering_lora = _validate_rendering_lora(profile)
+
     compiled = copy.deepcopy(workflow)
     try:
         compiled["1"]["inputs"]["ckpt_name"] = workflow_cfg["checkpoint"]
@@ -104,13 +130,32 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
             compiled["2"]["inputs"]["image"] = master_file.local_path.name
             compiled["4"]["inputs"]["text"] = positive
             compiled["5"]["inputs"]["text"] = negative
+            positive_node = compiled["4"]["inputs"]
+            negative_node = compiled["5"]["inputs"]
             sampler = compiled["6"]["inputs"]
             save_node = compiled["8"]["inputs"]
         else:
             compiled["3"]["inputs"]["text"] = positive
             compiled["4"]["inputs"]["text"] = negative
+            positive_node = compiled["3"]["inputs"]
+            negative_node = compiled["4"]["inputs"]
             sampler = compiled["5"]["inputs"]
             save_node = compiled["7"]["inputs"]
+
+        if rendering_lora is not None:
+            compiled["90"] = {
+                "class_type": "LoraLoader",
+                "inputs": {
+                    "lora_name": rendering_lora["lora_name"],
+                    "strength_model": rendering_lora["strength_model"],
+                    "strength_clip": rendering_lora["strength_clip"],
+                    "model": ["1", 0],
+                    "clip": ["1", 1],
+                },
+            }
+            positive_node["clip"] = ["90", 1]
+            negative_node["clip"] = ["90", 1]
+            sampler["model"] = ["90", 0]
 
         sampler["seed"] = workflow_cfg["seed"]
         sampler["steps"] = workflow_cfg["steps"]
