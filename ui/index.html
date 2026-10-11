@@ -160,13 +160,15 @@
               <textarea id="dev-prompt" rows="4" placeholder="コード修正指示を貼り付けてください。"></textarea>
               <button id="dev-send" class="primary-action compact" type="submit">送信</button>
             </form>
-            <p class="scope-note">現在は解析・計画のみです。ファイル変更、Git操作、テスト、ビルド実行はまだ接続していません。</p>
+            <p class="scope-note">Git/Oracleの読取ツールを利用できます。ファイル変更、Git書込み、シェル実行はまだ許可していません。</p>
           </section>
         </section>
       </div>
     </section>
   </main>
   <script src="app.js"></script>
+  <script src="json_download.js"></script>
+  <script src="local_tools_ui.js"></script>
   <script src="generation_ai.js"></script>
   <script src="clipboard.js"></script>
 </body>
