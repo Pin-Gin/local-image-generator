@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -79,6 +81,55 @@ def fetch_system_stats(base_url: str, timeout_seconds: float = 5.0) -> ComfyUISt
     )
     payload = _request_json(request, timeout_seconds, "ComfyUI /system_stats")
     return ComfyUIStatus(base_url=normalized, endpoint=endpoint, payload=payload)
+
+
+def upload_input_image(
+    base_url: str,
+    source: Path,
+    remote_name: str | None = None,
+    timeout_seconds: float = 30.0,
+) -> str:
+    normalized = normalize_base_url(base_url)
+    endpoint = f"{normalized}/upload/image"
+    filename = remote_name or source.name
+    boundary = f"----MEMORIELA{uuid.uuid4().hex}"
+    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    file_bytes = source.read_bytes()
+
+    parts: list[bytes] = []
+    def add_field(name: str, value: str) -> None:
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        parts.append(value.encode())
+        parts.append(b"\r\n")
+
+    parts.append(f"--{boundary}\r\n".encode())
+    parts.append(
+        f'Content-Disposition: form-data; name="image"; filename="{filename}"\r\n'.encode()
+    )
+    parts.append(f"Content-Type: {content_type}\r\n\r\n".encode())
+    parts.append(file_bytes)
+    parts.append(b"\r\n")
+    add_field("type", "input")
+    add_field("overwrite", "true")
+    parts.append(f"--{boundary}--\r\n".encode())
+    body = b"".join(parts)
+
+    request = urllib.request.Request(
+        endpoint,
+        data=body,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Content-Length": str(len(body)),
+        },
+        method="POST",
+    )
+    payload = _request_json(request, timeout_seconds, "ComfyUI /upload/image")
+    name = payload.get("name")
+    if not isinstance(name, str) or not name:
+        raise RuntimeError("ComfyUI /upload/image response did not contain image name")
+    return name
 
 
 def submit_prompt(base_url: str, workflow: dict[str, Any], timeout_seconds: float = 10.0) -> str:
