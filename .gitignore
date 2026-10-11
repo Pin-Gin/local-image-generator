@@ -15,6 +15,8 @@ database/*.sqlite3
 learning/rendering/train_config.local.json
 learning/rendering/output/*
 !learning/rendering/output/.gitkeep
+learning/rendering/incoming/*
+!learning/rendering/incoming/.gitkeep
 learning/rendering/dataset/**/*.png
 learning/rendering/dataset/**/*.jpg
 learning/rendering/dataset/**/*.jpeg
