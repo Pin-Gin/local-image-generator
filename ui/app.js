@@ -1,22 +1,16 @@
 const profileSelect = document.getElementById('profile');
 const form = document.getElementById('chat-form');
 const promptInput = document.getElementById('prompt');
-const messages = document.getElementById('messages');
 const jsonPreview = document.getElementById('json-preview');
 const generateButton = document.getElementById('generate-button');
 const generationStatus = document.getElementById('generation-status');
 const generatedImage = document.getElementById('generated-image');
+const imagePlaceholder = document.getElementById('image-placeholder');
 const generationMeta = document.getElementById('generation-meta');
 const seedModeSelect = document.getElementById('seed-mode');
 const seedValueInput = document.getElementById('seed-value');
-
-function addMessage(text, role) {
-  const node = document.createElement('div');
-  node.className = `message ${role}`;
-  node.textContent = text;
-  messages.appendChild(node);
-  messages.scrollTop = messages.scrollHeight;
-}
+const toolButtons = [...document.querySelectorAll('.tool-button')];
+const sidePanels = [...document.querySelectorAll('.side-panel')];
 
 async function loadProfiles() {
   const response = await fetch('/api/profiles');
@@ -67,6 +61,15 @@ async function postGenerate(input) {
   return payload;
 }
 
+function showSidePanel(panelId) {
+  sidePanels.forEach((panel) => panel.classList.toggle('hidden', panel.id !== panelId));
+  toolButtons.forEach((button) => button.classList.toggle('active', button.dataset.panel === panelId));
+}
+
+toolButtons.forEach((button) => {
+  button.addEventListener('click', () => showSidePanel(button.dataset.panel));
+});
+
 seedModeSelect.addEventListener('change', () => {
   seedValueInput.disabled = seedModeSelect.value !== 'FIXED';
 });
@@ -78,14 +81,17 @@ form.addEventListener('submit', async (event) => {
   try {
     input = currentInput();
   } catch (error) {
-    addMessage(`エラー: ${error.message}`, 'system');
+    generationStatus.textContent = `エラー: ${error.message}`;
+    generationStatus.classList.add('error');
     return;
   }
 
-  addMessage(input.userText, 'user');
   generationStatus.textContent = '生成中...';
+  generationStatus.classList.remove('error');
   generationMeta.textContent = '';
   generatedImage.hidden = true;
+  imagePlaceholder.hidden = false;
+  imagePlaceholder.textContent = '生成中...';
   generateButton.disabled = true;
 
   try {
@@ -95,26 +101,28 @@ form.addEventListener('submit', async (event) => {
     const generation = payload.generation;
     const inputMode = payload.request?.prompt_input?.mode || 'unknown';
     const generationMode = generation.generation_mode || payload.request?.target_mode || 'unknown';
+
     generatedImage.src = `${generation.output_url}?t=${Date.now()}`;
     generatedImage.hidden = false;
+    imagePlaceholder.hidden = true;
     generationStatus.textContent = '生成完了';
     generationMeta.textContent = JSON.stringify({
       generation_id: generation.generation_id,
       input_mode: inputMode,
       generation_mode: generationMode,
-      intent_status: payload.request?.intent?.status,
       seed: generation.seed,
-      output_sha256: generation.output_sha256,
     }, null, 2);
-    addMessage(`画像を生成しました。mode=${generationMode}, seed=${generation.seed}`, 'assistant');
   } catch (error) {
-    generationStatus.textContent = '生成失敗';
-    addMessage(`生成エラー: ${error.message}`, 'system');
+    generationStatus.textContent = `生成エラー: ${error.message}`;
+    generationStatus.classList.add('error');
+    imagePlaceholder.hidden = false;
+    imagePlaceholder.textContent = '生成に失敗しました';
   } finally {
     generateButton.disabled = false;
   }
 });
 
 loadProfiles().catch((error) => {
-  addMessage(`Profile読込エラー: ${error.message}`, 'system');
+  generationStatus.textContent = `Profile読込エラー: ${error.message}`;
+  generationStatus.classList.add('error');
 });
