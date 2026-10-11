@@ -1,45 +1,49 @@
 {
   "schema_version": 1,
   "rendering_id": "matte-dimensional-anime-v1",
-  "rendering_version": 1,
+  "rendering_version": 2,
   "name": "Matte Dimensional Anime",
-  "description": "2Dアニメを基礎としつつ、3Dアニメに近い立体感・奥行き・面のボリュームを持たせる。表面はマットで、強い光沢や実写的な肌質、PBR的な質感は避ける。",
-  "medium": "2D anime foundation with subtle 3D-anime-like dimensionality",
+  "description": "2Dアニメを基礎にしつつ、3Dアニメ寄りの明確な立体感・奥行き・面のボリュームを優先する。人物・物体・背景を平面的に処理せず、光と影で形状と空間を明確に分離する。表面はマットで、強い光沢や実写的な肌質、PBR的な質感は避ける。",
+  "medium": "2D anime foundation with pronounced 3D-anime-like dimensionality and volumetric form",
   "line": {
     "weight": "medium-fine",
-    "softness": "slightly soft",
-    "detail": "restrained"
+    "softness": "soft and subordinate to form",
+    "detail": "restrained, avoid heavy outline dominance"
   },
   "shading": {
-    "style": "anime shading with soft dimensional gradients",
-    "shadow_softness": "medium-soft",
-    "highlight_style": "restrained matte highlights"
+    "style": "strong dimensional anime shading with smooth volumetric gradients and readable form planes",
+    "shadow_softness": "medium-soft with defined form separation",
+    "highlight_style": "restrained matte highlights",
+    "facial_planes": "soft but clearly modeled cheeks, nose, jaw, and eye sockets"
   },
   "color": {
     "saturation": "slightly restrained",
-    "contrast": "medium",
+    "contrast": "medium to moderately strong",
     "temperature": "neutral"
   },
   "lighting": {
-    "style": "soft dimensional lighting",
+    "style": "soft cinematic dimensional lighting",
     "softness": "soft",
-    "ambient_light": "present",
-    "rim_light": "subtle only when scene-appropriate"
+    "ambient_light": "present with global-illumination-like fill",
+    "rim_light": "subtle only when scene-appropriate",
+    "form_priority": "lighting must describe volume and separate planes"
   },
   "materials": {
     "surface": "matte",
-    "skin": "smooth matte anime skin, no photoreal skin texture",
-    "hair": "dimensional anime hair masses with controlled highlights",
-    "fabric": "matte fabric with readable folds, not PBR"
+    "skin": "smooth matte anime skin with modeled volume, no photoreal skin texture",
+    "hair": "dimensional anime hair masses with controlled highlights and visible strand grouping",
+    "fabric": "matte fabric with readable folds and volume, not PBR"
   },
   "depth": {
-    "style": "clear spatial depth",
-    "volume_strength": "medium to moderately strong",
-    "target": "slight 3D-anime-like volume without becoming CGI"
+    "style": "strong spatial depth",
+    "volume_strength": "strong",
+    "target": "clear 3D-anime-like volume while remaining stylized anime",
+    "scene_layers": "clear foreground, subject, midground, and background separation"
   },
   "background": {
-    "rendering": "same visual world as foreground",
-    "depth": "clear foreground-midground-background separation"
+    "rendering": "same dimensional visual world as foreground",
+    "depth": "clear foreground-midground-background separation with readable perspective",
+    "detail": "avoid watercolor wash; keep forms spatially defined"
   },
   "quality": {
     "detail_level": "medium-high",
@@ -48,8 +52,8 @@
     "sharpness": "balanced"
   },
   "prompt": {
-    "positive": "Matte Dimensional Anime, 2D anime foundation, subtle 3D-anime-like dimensionality, clear spatial depth, dimensional volume, soft matte surfaces, restrained highlights, soft dimensional lighting, clean anime rendering",
-    "negative": "photorealistic, live-action, realistic human skin texture, glossy CGI, plastic-like CGI, PBR materials, excessive specular highlights, waxy skin"
+    "positive": "Matte Dimensional Anime, stylized anime with pronounced 3D-anime-like dimensionality, strong dimensional form, clear volumetric shading, modeled facial planes, visible volume in cheeks nose jaw neck arms torso and legs, soft cinematic lighting that describes form, soft global-illumination-like fill, matte surface response, restrained specular highlights, clear spatial depth, strong foreground subject midground background separation, cinematic spatial depth, clean dimensional anime rendering",
+    "negative": "photorealistic, live-action, realistic human skin texture, glossy CGI, plastic-like CGI, PBR materials, excessive specular highlights, waxy skin, flat anime shading, flat cel shading, flat facial planes, flat composition, watercolor illustration, painterly wash, sketch-like rendering, washed-out depth, weak volumetric shading, overly soft undefined forms"
   },
   "generation": {
     "checkpoint": "sd_xl_base_1.0.safetensors",
