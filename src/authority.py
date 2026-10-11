@@ -32,7 +32,7 @@ class AuthorityBundle:
 def _request_json(url: str, timeout_seconds: float = 15.0) -> Any:
     request = urllib.request.Request(
         url,
-        headers={"Accept": "application/vnd.github+json", "User-Agent": "MEMORIELA-local-image-generator"},
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "local-RAG"},
         method="GET",
     )
     try:
@@ -50,7 +50,7 @@ def _request_json(url: str, timeout_seconds: float = 15.0) -> Any:
 
 
 def _download_bytes(url: str, timeout_seconds: float = 30.0) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": "MEMORIELA-local-image-generator"}, method="GET")
+    request = urllib.request.Request(url, headers={"User-Agent": "local-RAG"}, method="GET")
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             return response.read()
