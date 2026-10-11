@@ -11,6 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 from chat_contract import build_generation_request, list_profile_ids
 from generation_bridge import run_chat_generation
+from local_ai_client import LocalAIClient, load_local_ai_config
 
 
 def _resource_root() -> Path:
@@ -24,6 +25,7 @@ UI_ROOT = ROOT / "ui"
 PROFILES_ROOT = ROOT / "profiles"
 INTENT_ROOT = ROOT / "intent"
 CONFIG_PATH = ROOT / "config" / "app.example.json"
+LOCAL_AI_CONFIG_PATH = ROOT / "config" / "local_ai.json"
 OUTPUTS_ROOT = ROOT / "outputs"
 
 
@@ -78,6 +80,9 @@ class Handler(SimpleHTTPRequestHandler):
             seed=seed,
         )
 
+    def _local_ai_client(self) -> LocalAIClient:
+        return LocalAIClient(load_local_ai_config(LOCAL_AI_CONFIG_PATH))
+
     def _serve_generated_file(self) -> bool:
         request_path = urlsplit(self.path).path
         prefix = "/generated/"
@@ -115,9 +120,74 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/profiles":
             self._send_json(HTTPStatus.OK, {"profiles": list_profile_ids(PROFILES_ROOT)})
             return
+        if self.path == "/api/local-ai/status":
+            try:
+                client = self._local_ai_client()
+                self._send_json(HTTPStatus.OK, {"local_ai": client.status()})
+            except Exception as exc:
+                self._send_json(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    {
+                        "error": str(exc) or exc.__class__.__name__,
+                        "error_type": exc.__class__.__name__,
+                    },
+                )
+            return
         super().do_GET()
 
+    def _handle_local_ai_chat(self, payload: dict[str, Any]) -> None:
+        role = payload.get("role")
+        message = payload.get("message")
+        history = payload.get("history")
+        images = payload.get("images")
+
+        if not isinstance(role, str):
+            raise ValueError("local AI role is required")
+        if not isinstance(message, str):
+            raise ValueError("local AI message is required")
+        if history is not None and not isinstance(history, list):
+            raise ValueError("local AI history must be an array")
+        if images is not None and not isinstance(images, list):
+            raise ValueError("local AI images must be an array")
+
+        client = self._local_ai_client()
+        result = client.chat(
+            role,
+            message,
+            history=history,
+            images_base64=images,
+        )
+        self._send_json(
+            HTTPStatus.OK,
+            {
+                "local_ai": {
+                    "role": result.role,
+                    "model": result.model,
+                    "content": result.content,
+                    "total_duration": result.total_duration,
+                    "load_duration": result.load_duration,
+                    "prompt_eval_count": result.prompt_eval_count,
+                    "eval_count": result.eval_count,
+                }
+            },
+        )
+
     def do_POST(self) -> None:
+        if self.path == "/api/local-ai/chat":
+            try:
+                self._handle_local_ai_chat(self._read_json_body())
+            except Exception as exc:
+                detail = traceback.format_exc(limit=8)
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {
+                        "error": str(exc) or exc.__class__.__name__,
+                        "error_type": exc.__class__.__name__,
+                        "detail": detail,
+                    },
+                )
+            return
+
         if self.path not in {"/api/chat/request", "/api/chat/generate"}:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
             return
