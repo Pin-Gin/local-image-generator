@@ -33,10 +33,9 @@ INTENT_PROMPT_FRAGMENTS = {
     "hair": {
         "MASTER_REFERENCE": "preserve the referenced hair identity and hairstyle",
     },
-    "rendering": {
-        "ANIME_2D": "2D anime illustration",
-    },
 }
+
+SHARED_RENDERING_PATH = Path("config/shared_rendering.json")
 
 
 @dataclass(frozen=True)
@@ -77,6 +76,40 @@ def _append_prompt(base: str, additions: list[str]) -> str:
         if text and text not in parts:
             parts.append(text)
     return ", ".join(parts)
+
+
+def _load_shared_rendering(root: Path) -> tuple[dict[str, Any], str, str]:
+    path = root / SHARED_RENDERING_PATH
+    payload = _load_json(path)
+    if payload.get("schema_version") != 1:
+        raise ValueError("shared rendering schema_version must be 1")
+
+    prompt = payload.get("prompt")
+    generation = payload.get("generation")
+    if not isinstance(prompt, dict):
+        raise ValueError("shared rendering prompt must be an object")
+    if not isinstance(generation, dict):
+        raise ValueError("shared rendering generation must be an object")
+
+    positive = prompt.get("positive")
+    negative = prompt.get("negative")
+    if not isinstance(positive, str) or not positive.strip():
+        raise ValueError("shared rendering prompt.positive must be a non-empty string")
+    if not isinstance(negative, str):
+        raise ValueError("shared rendering prompt.negative must be a string")
+
+    required_generation = {
+        "checkpoint": str,
+        "steps": int,
+        "cfg": (int, float),
+        "sampler_name": str,
+        "scheduler": str,
+    }
+    for key, expected_type in required_generation.items():
+        if not isinstance(generation.get(key), expected_type):
+            raise ValueError(f"shared rendering generation.{key} has invalid type")
+
+    return payload, positive.strip(), negative.strip()
 
 
 def find_profile_path(profiles_root: Path, profile_id: str) -> Path:
@@ -138,6 +171,14 @@ def build_generation_plan(
     if not isinstance(negative, str):
         raise ValueError("profile.prompt.negative must be a string")
 
+    shared_rendering, shared_positive, shared_negative = _load_shared_rendering(root)
+    shared_generation = shared_rendering["generation"]
+    workflow["checkpoint"] = shared_generation["checkpoint"]
+    workflow["steps"] = shared_generation["steps"]
+    workflow["cfg"] = shared_generation["cfg"]
+    workflow["sampler_name"] = shared_generation["sampler_name"]
+    workflow["scheduler"] = shared_generation["scheduler"]
+
     fragments: list[str] = []
     for category, mapping in INTENT_PROMPT_FRAGMENTS.items():
         value = intent.get(category)
@@ -153,16 +194,18 @@ def build_generation_plan(
         workflow["mode"] = "img2img"
         derived["prompt"]["positive"] = _append_prompt(
             positive,
-            [*fragments, freeform_positive],
+            [shared_positive, *fragments, freeform_positive],
         )
+        negative_additions = [shared_negative]
         if isinstance(freeform_negative, str) and freeform_negative.strip():
-            derived["prompt"]["negative"] = _append_prompt(negative, [freeform_negative])
+            negative_additions.append(freeform_negative)
+        derived["prompt"]["negative"] = _append_prompt(negative, negative_additions)
         generation_mode = "yura_img2img"
     else:
         workflow["mode"] = "text2img"
         workflow["template"] = "workflows/sdxl_text2img_api.json"
         workflow["denoise"] = 1.0
-        workflow["filename_prefix"] = "MEMORIELA_FREEFORM"
+        workflow["filename_prefix"] = "LOCAL_RAG_FREEFORM"
         generic_fragments = [
             fragment
             for category, mapping in INTENT_PROMPT_FRAGMENTS.items()
@@ -170,12 +213,15 @@ def build_generation_plan(
             for value in [intent.get(category)]
             if isinstance(value, str) and (fragment := mapping.get(value)) is not None
         ]
-        derived["prompt"]["positive"] = _append_prompt("", [*generic_fragments, freeform_positive])
-        derived["prompt"]["negative"] = (
-            freeform_negative.strip()
-            if isinstance(freeform_negative, str) and freeform_negative.strip()
-            else "blurry, low quality"
+        derived["prompt"]["positive"] = _append_prompt(
+            "",
+            [shared_positive, *generic_fragments, freeform_positive],
         )
+        generic_negative = "blurry, low quality"
+        additions = [shared_negative, generic_negative]
+        if isinstance(freeform_negative, str) and freeform_negative.strip():
+            additions.append(freeform_negative)
+        derived["prompt"]["negative"] = _append_prompt("", additions)
         generation_mode = "generic_text2img"
 
     options = request.get("options")
@@ -186,6 +232,7 @@ def build_generation_plan(
                 raise ValueError("request.options.seed must be a non-negative integer or null")
             workflow["seed"] = seed
 
+    derived["shared_rendering"] = shared_rendering
     derived["request_context"] = {
         "request_id": request.get("request_id"),
         "source": request.get("source"),
@@ -194,6 +241,8 @@ def build_generation_plan(
         "prompt_input": prompt_input,
         "target_mode": target_mode,
         "generation_mode": generation_mode,
+        "rendering_id": shared_rendering.get("rendering_id"),
+        "rendering_version": shared_rendering.get("rendering_version"),
         "base_profile_path": str(profile_path.relative_to(root)),
         "base_profile_sha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
     }
@@ -241,6 +290,8 @@ def run_chat_generation(
 
     mode = workflow_cfg.get("mode", "img2img")
     if mode == "img2img":
+        if compiled.authority is None:
+            raise RuntimeError("img2img authority was not resolved")
         master_path = plan["authority"]["master_image_path"]
         master_file = compiled.authority.files[master_path]
         remote_name = master_file.local_path.name
@@ -270,6 +321,7 @@ def run_chat_generation(
     manifest_payload = build_generation_manifest(compiled, result, result.output_path)
     manifest_payload["generation_id"] = generation_id
     manifest_payload["request"] = request
+    manifest_payload["shared_rendering"] = plan.get("shared_rendering")
     manifest_payload["generation_plan"] = {
         "path": str(plan_path),
         "sha256": _sha256_bytes(plan_path.read_bytes()),
