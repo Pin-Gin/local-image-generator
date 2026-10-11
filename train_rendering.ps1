@@ -2,6 +2,7 @@ param(
   [ValidateSet("setup", "validate", "train", "publish")]
   [string]$Action = "validate",
   [switch]$Activate,
+  [switch]$SkipDependencyInstall,
   [string]$ComfyUIRoot = "$env:USERPROFILE\Downloads\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable\ComfyUI"
 )
 
@@ -10,7 +11,15 @@ $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $RepoRoot
 
 if ($Action -eq "setup") {
-  & powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "setup_rendering_learning.ps1") -ComfyUIRoot $ComfyUIRoot
+  $setupArgs = @(
+    "-ExecutionPolicy", "Bypass",
+    "-File", (Join-Path $RepoRoot "setup_rendering_learning.ps1"),
+    "-ComfyUIRoot", $ComfyUIRoot
+  )
+  if ($SkipDependencyInstall) {
+    $setupArgs += "-SkipDependencyInstall"
+  }
+  & powershell @setupArgs
   exit $LASTEXITCODE
 }
 
