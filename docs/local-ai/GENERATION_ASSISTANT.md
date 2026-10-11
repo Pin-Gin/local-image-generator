@@ -1,133 +1,148 @@
-# Generation-side Local AI / Learned Asset Pipeline
+# Generation-side Local AI Boundary
 
-Status: **IMPLEMENTED / LOCAL VERIFICATION REQUIRED**
+Status: **TARGET SPLIT DECIDED / CURRENT CODE STILL NEEDS FREE BYPASS REFACTOR**
 
-The generation path now uses the project-local `qwen3-vl:8b-instruct` model **before** ComfyUI generation to decide whether any registered learned asset applies to the user's request.
-
-## Current generation flow
+For the authoritative continuation state, read:
 
 ```text
-User input
-  -> existing FREE / MEMORIELA routing
-  -> local generation AI (qwen3-vl:8b-instruct)
-  -> learning/registry/registry.json
-  -> AI selects only registered, eligible asset IDs
-  -> selection is validated against the registry
-  -> generation plan applies selected learned prompts / LoRAs
-  -> shared Rendering LoRA
-  -> ComfyUI
-  -> generated image
-  -> optional generation-side visual QA/chat
+docs/handoff/LOCAL_RAG_HANDOFF.md
 ```
 
-The local AI is **not allowed to invent runtime assets or silently rewrite the user's generation request**. It returns selected asset IDs only. Unknown or ineligible IDs are rejected before generation.
+## 1. Current architecture decision
 
-## Learning registry
+The local AI subsystem remains part of the desktop application, but it must no longer be treated as a mandatory pre-generation layer for every generation request.
 
-Mutable source:
+Target responsibility split:
+
+```text
+FREE
+  -> no Qwen prompt rewrite
+  -> no Qwen pre-generation learned-asset selection
+  -> deterministic prompt / JSON Part / configured generation controls
+
+MEMORIELA
+  -> local AI remains for request/canon/asset interpretation
+  -> AI produces or assists a controlled GenerationPlan
+  -> resolved plan executes through the common deterministic generation engine
+
+LEARN
+  -> local AI remains for analysis and JSON Part candidate generation
+  -> explicit user acceptance before persistence/reuse
+```
+
+The AI is not being removed from local-RAG. The change is specifically that **FREE image generation is separated from conversational/local-AI interpretation**.
+
+## 2. Current code versus target
+
+Current `src/ui_server.py` still performs:
+
+```text
+build_generation_request
+  -> _attach_learned_asset_selection
+  -> select_assets_with_local_ai
+```
+
+for both FREE and MEMORIELA.
+
+That behavior is now legacy for FREE and must be bypassed/refactored.
+
+Current registry:
 
 ```text
 learning/registry/registry.json
 ```
 
-The desktop build also bundles a fallback copy, but when the executable remains under the repository build tree the application prefers the repository copy so future published learning assets can be added without treating bundled data as the mutable source of truth.
+contains the shared Matte Dimensional Anime rendering asset as `selection_mode: always`, but no production `selection_mode: ai` pose/hand/outfit/character/background asset.
 
-Registry assets currently support these conditional runtime types:
+The previous AI-selector implementation remains useful engineering history and may still be reused on the MEMORIELA side where controlled AI planning is appropriate. It must not be reintroduced into FREE merely because the code already exists.
 
-```text
-prompt
-lora
-```
-
-`shared_rendering` is inventory-only / always-applied and is not an AI-selected conditional runtime.
-
-### Current production registry state
-
-At this checkpoint the registry records the already-trained Matte Dimensional Anime shared rendering asset as `selection_mode: always`.
-
-There are currently **no production `selection_mode: ai` pose / hand / outfit / character / background assets yet**. Therefore the new selector is connected, but it should currently return an empty conditional selection for normal requests until a real learned asset is published into the registry.
-
-## Learned LoRA composition
-
-`src/compiler.py` now supports a LoRA chain:
+## 3. Target FREE flow
 
 ```text
-SDXL Base
-  -> Shared Rendering LoRA (if active)
-  -> AI-selected Learned LoRA #1
-  -> AI-selected Learned LoRA #2
-  -> ...
-  -> CLIP conditioning / sampler
+Desktop UI
+  -> parse exact user text/JSON
+  -> resolve explicitly referenced JSON Parts
+  -> deterministic GenerationPlan
+       checkpoint
+       content / character / pose
+       rendering conditioning
+       rendering LoRA
+       lineart conditioning / LoRA
+       negative conditioning
+       pose control
+       postprocess configuration
+  -> compiler
+  -> ComfyUI
+  -> image
 ```
 
-Duplicate learned asset IDs, duplicate learned LoRA files, and duplication of the shared rendering LoRA are rejected.
-
-## Request / manifest traceability
-
-The generation request now records:
+Later pipeline stages are planned:
 
 ```text
-learning.registry_version
-learning.selector
-learning.selector_role
-learning.selector_model
-learning.selected_asset_ids
-learning.reason
+ControlNet / OpenPose
+first generation
+hand / face / body check
+targeted Inpaint
+Detailer
+Upscale
 ```
 
-The generation plan records resolved learned assets and runtime types. The manifest records the learned assets actually applied to the generated image.
+These later stages are not yet production-complete.
 
-The desktop generation result metadata displays `learned_asset_ids` so it is visible whether a conditional learned asset was used.
-
-## Generation-side visual assistant
-
-The previously added generation-side AI chat remains available after image generation. It can inspect the generated image, compare it to the original request, and transfer the image into LEARN mode for further analysis.
-
-This post-generation visual assistant is separate from the new **pre-generation learned-asset selector**.
-
-## Important remaining boundary
-
-The generation side can now **consume** registered learned assets, but LEARN mode still does not automatically perform the complete persistent lifecycle:
+## 4. Target MEMORIELA AI flow
 
 ```text
-accepted image
-  -> dataset registration
-  -> train
-  -> validate
-  -> publish asset
-  -> add/update learning registry
+User request
+  -> local AI / controlled tools
+  -> MEMORIELA canon / approved authority lookup as needed
+  -> resolve registered character/outfit/expression/pose/background/camera assets
+  -> validated structured GenerationPlan
+  -> common deterministic generation engine
 ```
 
-That lifecycle remains the next major implementation step for hand / pose / outfit / character learning.
+AI must not invent assets, silently substitute characters, or bypass authority validation.
 
-## Verification commands
+Only YURA currently has a connected runtime character profile. Other routed MEMORIELA characters must fail explicitly until their runtime profiles exist.
 
-After pulling the current branch, first run the local deterministic test:
+## 5. Post-generation AI
 
-```powershell
-cd C:\Dev\local-image-generator
-python .\src\learning_generation_test.py
-```
+Post-generation image discussion/analysis can remain available as an optional assistant feature. It is separate from the deterministic FREE generation execution path.
 
-Expected:
+Vision output remains advisory evidence, not ground truth.
+
+## 6. Historical learned-asset selector
+
+The existing selector implementation can:
+
+- ask the local `generate` role to return exact registry asset IDs;
+- reject unknown/ineligible IDs;
+- resolve prompt/LoRA assets;
+- record selected IDs into request/plan/manifest metadata;
+- chain learned LoRAs after shared rendering in the compiler.
+
+This code is **not the target FREE design anymore**.
+
+`src/learning_generation_test.py` remains useful for testing the old selector/LoRA-chain mechanics in isolation, but a passing result does not mean FREE should continue to call Qwen.
+
+## 7. Next implementation requirement
+
+The first generation-side change after this documentation checkpoint is:
 
 ```text
-[LEARNED-GENERATION:TEST:OK]
+FREE request
+  -> build_generation_request
+  -> exact JSON Part resolution
+  -> deterministic GenerationPlan
+  -> no LocalAIClient/Qwen call
 ```
 
-Then rebuild and run the desktop application:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build_desktop.ps1
-.\dist\local-RAG\local-RAG.exe
-```
-
-With the current production registry, a normal generation should show:
+while:
 
 ```text
-learned_asset_ids: []
+MEMORIELA request
+  -> controlled AI planning may remain
 ```
 
-while the shared rendering LoRA remains governed by the existing shared-rendering configuration.
+Add a focused test that proves FREE request construction/generation planning works even when Ollama is unavailable or not called.
 
-Do not mark the pre-generation AI selector, multi-LoRA runtime chain, or desktop metadata as VERIFIED until the user runs these checks locally.
+Do not mark this split VERIFIED until the user runs the resulting local test.
