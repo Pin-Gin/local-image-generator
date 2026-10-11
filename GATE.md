@@ -1,6 +1,6 @@
 # MEMORIELA Local Image Generator — Production Gates
 
-Status: **ACTIVE / G0–G4 VERIFIED**
+Status: **ACTIVE / G0–G5 VERIFIED**
 
 ## Gate principle
 
@@ -95,7 +95,7 @@ The generated image and its `manifest.json` were stored under the same generatio
 
 ## G5 — SQLite History / Lookup
 
-**Status: NEXT**
+**Status: PASS — locally verified**
 
 PASS requires:
 
@@ -104,7 +104,23 @@ PASS requires:
 - generation/history can be queried
 - accepted/rejected status can be stored without modifying source canon
 
+Verified G5 run:
+
+- database: `database/memoriela_local.db`
+- generation id: `20261011T004449955189Z`
+- manifest SHA-256: `2b6888063b9f4685124b7847402aada46275aa653dfae4fd05a98cbc3a87043c`
+- output SHA-256: `e78d3f41078fa572d1e179bc35d546bbf9a5201996c155d95d20dc9ea17f9f26`
+- initial QA status: `unreviewed`
+- accepted status write: PASS
+- rejected status write: PASS
+- restore to `unreviewed`: PASS
+- history lookup: PASS
+
+The G5 verification modified only the local SQLite history state and did not write back to MEMORIELA canon.
+
 ## G6 — Identity Stability
+
+**Status: NEXT — criteria must be defined before implementation**
 
 PASS criteria will be defined before implementation begins.
 
@@ -131,4 +147,5 @@ PASS requires:
 - G2 ComfyUI Connectivity: PASS
 - G3 Authority / Profile Compilation: PASS
 - G4 Manifest and Output Integrity: PASS
-- G5 SQLite History / Lookup: NEXT
+- G5 SQLite History / Lookup: PASS
+- G6 Identity Stability: NEXT
