@@ -77,6 +77,10 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
         if not isinstance(value, expected_type):
             raise ValueError(f"profile.workflow.{key} has invalid type")
 
+    mode = workflow_cfg.get("mode", "img2img")
+    if mode not in {"img2img", "text2img"}:
+        raise ValueError("profile.workflow.mode must be img2img or text2img")
+
     positive = prompt_cfg.get("positive")
     negative = prompt_cfg.get("negative")
     if not isinstance(positive, str) or not positive.strip():
@@ -84,25 +88,33 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
     if not isinstance(negative, str):
         raise ValueError("profile.prompt.negative must be a string")
 
-    master_path = profile["authority"]["master_image_path"]
-    master_file = authority.files[master_path]
-
     compiled = copy.deepcopy(workflow)
     try:
         compiled["1"]["inputs"]["ckpt_name"] = workflow_cfg["checkpoint"]
-        compiled["2"]["inputs"]["image"] = master_file.local_path.name
-        compiled["4"]["inputs"]["text"] = positive
-        compiled["5"]["inputs"]["text"] = negative
-        sampler = compiled["6"]["inputs"]
+
+        if mode == "img2img":
+            master_path = profile["authority"]["master_image_path"]
+            master_file = authority.files[master_path]
+            compiled["2"]["inputs"]["image"] = master_file.local_path.name
+            compiled["4"]["inputs"]["text"] = positive
+            compiled["5"]["inputs"]["text"] = negative
+            sampler = compiled["6"]["inputs"]
+            save_node = compiled["8"]["inputs"]
+        else:
+            compiled["3"]["inputs"]["text"] = positive
+            compiled["4"]["inputs"]["text"] = negative
+            sampler = compiled["5"]["inputs"]
+            save_node = compiled["7"]["inputs"]
+
         sampler["seed"] = workflow_cfg["seed"]
         sampler["steps"] = workflow_cfg["steps"]
         sampler["cfg"] = workflow_cfg["cfg"]
         sampler["sampler_name"] = workflow_cfg["sampler_name"]
         sampler["scheduler"] = workflow_cfg["scheduler"]
         sampler["denoise"] = workflow_cfg["denoise"]
-        compiled["8"]["inputs"]["filename_prefix"] = workflow_cfg["filename_prefix"]
+        save_node["filename_prefix"] = workflow_cfg["filename_prefix"]
     except (KeyError, TypeError) as exc:
-        raise RuntimeError("Workflow template does not match the expected G3 node contract") from exc
+        raise RuntimeError(f"Workflow template does not match the expected {mode} node contract") from exc
 
     compiled_bytes = _canonical_json_bytes(compiled)
     compiled_sha256 = _sha256_bytes(compiled_bytes)
