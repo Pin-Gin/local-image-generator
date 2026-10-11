@@ -20,9 +20,7 @@ header p { margin: 6px 0 24px; color: #aeb6c2; }
   margin-top: 14px;
 }
 .panel label, .panel h2 { display: block; margin: 0 0 10px; }
-select, textarea, button {
-  font: inherit;
-}
+select, textarea, button { font: inherit; }
 select, textarea {
   width: 100%;
   background: #101318;
@@ -47,6 +45,11 @@ select, textarea {
 .message.assistant { background: #222831; }
 .message.system { color: #b8c0ca; background: #171b20; }
 .composer textarea { resize: vertical; }
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 button {
   margin-top: 10px;
   padding: 10px 16px;
@@ -57,10 +60,30 @@ button {
   color: #111317;
   font-weight: 600;
 }
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
 pre {
   margin: 0;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
   color: #d7dde6;
+}
+.generated-image {
+  display: block;
+  max-width: 100%;
+  max-height: 720px;
+  margin-top: 14px;
+  border-radius: 10px;
+  border: 1px solid #343c47;
+  background: #101318;
+}
+#generation-status {
+  color: #cbd3de;
+  margin-bottom: 10px;
+}
+#generation-meta {
+  margin-top: 12px;
 }
