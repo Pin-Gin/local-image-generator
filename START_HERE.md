@@ -52,6 +52,17 @@ local-RAG.exe
   -> Generated Image + Manifest
 ```
 
+A separate project-local AI runtime is being added for future LEARN and DEV modes:
+
+```text
+local-RAG backend
+  -> project-local Ollama API on 127.0.0.1:11435
+       -> LEARN: qwen3-vl:8b
+       -> DEV: qwen2.5-coder:14b
+```
+
+This local-AI path is currently an implemented foundation that still requires user-side runtime verification. It does not replace ComfyUI generation.
+
 ## Directory map
 
 ```text
@@ -69,7 +80,9 @@ domains/memoriela/           MEMORIELA-domain rules/assets
   situations/                reusable situation definitions
   backgrounds/               reusable background assets/metadata
 learning/rendering/           shared-rendering dataset/training pipeline
+docs/local-ai/               local AI runtime/setup/API documentation
 docs/assistant-context/      continuation/handoff state for future sessions
+tools/ollama/                project-local Ollama runtime/models (Git-ignored)
 cache/                       runtime cache
 database/                    SQLite runtime database
 outputs/                     generated outputs/manifests
@@ -84,6 +97,14 @@ Training data and model weights are local runtime assets and are not committed t
 
 See `learning/rendering/README.md`.
 
+## Local AI
+
+The project-local AI runtime is documented in:
+
+`docs/local-ai/README.md`
+
+The browser mode-switch UI and image-upload learning workflow are not yet complete. Establish and locally verify the runtime/API before promoting those features to VERIFIED.
+
 ## Source-of-truth separation
 
 The external MEMORIELA repository remains the authority for MEMORIELA canon and approved character visual sources. FREE generation does not read MEMORIELA authority.
@@ -91,10 +112,11 @@ The external MEMORIELA repository remains the authority for MEMORIELA canon and 
 ## Governing documents
 
 - `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md` — latest continuation checkpoint and verification state
+- `docs/local-ai/README.md` — project-local AI runtime/setup/API contract
 - `SPEC.md` — production scope and architecture
 - `GATE.md` — verification and promotion gates
 - `START_HERE.md` — repository entry point
 
 ## Development rule
 
-Code existence is not a runtime PASS. New routing, learning, LoRA activation, and generated-image behavior must be locally executed and verified before being treated as production-ready.
+Code existence is not a runtime PASS. New routing, learning, LoRA activation, local-AI behavior, and generated-image behavior must be locally executed and verified before being treated as production-ready.
