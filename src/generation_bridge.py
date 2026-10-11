@@ -50,6 +50,7 @@ class ChatGenerationResult:
     manifest_path: Path
     manifest_sha256: str
     database_path: Path
+    generation_mode: str
 
 
 def _sha256_bytes(raw: bytes) -> str:
@@ -111,6 +112,10 @@ def build_generation_plan(
     if freeform_negative is not None and not isinstance(freeform_negative, str):
         raise ValueError("request.prompt_input.negative must be string or null")
 
+    target_mode = request.get("target_mode")
+    if target_mode not in {"yura_img2img", "generic_text2img"}:
+        raise ValueError("request.target_mode must be yura_img2img or generic_text2img")
+
     profile_id = request.get("profile_id")
     if not isinstance(profile_id, str) or not profile_id:
         raise ValueError("request.profile_id must be a non-empty string")
@@ -144,8 +149,7 @@ def build_generation_plan(
         if fragment is not None:
             fragments.append(fragment)
 
-    is_yura_request = intent.get("character") == "YURA"
-    if is_yura_request:
+    if target_mode == "yura_img2img":
         workflow["mode"] = "img2img"
         derived["prompt"]["positive"] = _append_prompt(
             positive,
@@ -188,6 +192,7 @@ def build_generation_plan(
         "user_text": request.get("user_text"),
         "normalized_intent": intent,
         "prompt_input": prompt_input,
+        "target_mode": target_mode,
         "generation_mode": generation_mode,
         "base_profile_path": str(profile_path.relative_to(root)),
         "base_profile_sha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
@@ -234,7 +239,8 @@ def run_chat_generation(
     if not isinstance(workflow_cfg, dict):
         raise ValueError("generation plan workflow must be an object")
 
-    if workflow_cfg.get("mode", "img2img") == "img2img":
+    mode = workflow_cfg.get("mode", "img2img")
+    if mode == "img2img":
         master_path = plan["authority"]["master_image_path"]
         master_file = compiled.authority.files[master_path]
         remote_name = master_file.local_path.name
@@ -267,7 +273,7 @@ def run_chat_generation(
     manifest_payload["generation_plan"] = {
         "path": str(plan_path),
         "sha256": _sha256_bytes(plan_path.read_bytes()),
-        "mode": workflow_cfg.get("mode", "img2img"),
+        "mode": mode,
     }
     manifest_path = run_dir / "manifest.json"
     manifest_sha256 = write_manifest(manifest_path, manifest_payload)
@@ -285,4 +291,5 @@ def run_chat_generation(
         manifest_path=manifest_path,
         manifest_sha256=manifest_sha256,
         database_path=database_path,
+        generation_mode=str(plan.get("request_context", {}).get("generation_mode", mode)),
     )
