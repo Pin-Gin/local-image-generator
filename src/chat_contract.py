@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from intent_parser import parse_intent
+from json_parts import resolve_generation_parts
 
 
 def _resource_root() -> Path:
@@ -72,6 +73,7 @@ def _flatten_json_prompt(value: Any, prefix: str = "") -> list[str]:
                 "seed_mode",
                 "target_mode",
                 "generation_domain",
+                "parts",
             }:
                 continue
             label = f"{prefix} {key}".strip()
@@ -98,6 +100,15 @@ def _value_to_prompt_text(value: Any) -> str:
     if value is None or isinstance(value, bool):
         return ""
     return str(value).strip()
+
+
+def _join_prompt_parts(*values: str) -> str:
+    result: list[str] = []
+    for value in values:
+        text = value.strip()
+        if text and text not in result:
+            result.append(text)
+    return ", ".join(result)
 
 
 def _find_first_key_value(value: Any, keys: set[str]) -> Any:
@@ -195,6 +206,8 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str,
                 "positive": text,
                 "negative": None,
                 "json": None,
+                "resolved_parts": [],
+                "intent_source": text,
             },
             generation_domain,
             target_mode,
@@ -222,22 +235,32 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str,
             {"negative", "negative_prompt"},
         )
 
-    positive = _value_to_prompt_text(positive_value)
-    negative = _value_to_prompt_text(negative_value)
+    base_positive = _value_to_prompt_text(positive_value)
+    base_negative = _value_to_prompt_text(negative_value)
 
-    if not positive:
-        positive = ", ".join(_flatten_json_prompt(parsed_json)).strip()
+    if not base_positive:
+        base_positive = ", ".join(_flatten_json_prompt(parsed_json)).strip()
+
+    resolved_parts = resolve_generation_parts(ROOT, parsed_json.get("parts"))
+    positive = _join_prompt_parts(
+        base_positive,
+        *[part.positive for part in resolved_parts if part.positive],
+    )
+    negative = _join_prompt_parts(
+        base_negative,
+        *[part.negative for part in resolved_parts if part.negative],
+    )
+
     if not positive:
         raise ValueError("JSON input does not contain usable generation content")
 
     intent_source = parsed_json.get("text")
     if not isinstance(intent_source, str) or not intent_source.strip():
-        intent_source = positive
+        intent_source = base_positive or positive
     intent = _enrich_character_intent(parse_intent(intent_source, INTENT_ROOT), intent_source)
 
     explicit_route = _normalize_explicit_mode(parsed_json.get("target_mode"))
     if explicit_route is None:
-        # JSON is FREE by default. MEMORIELA JSON must opt in explicitly.
         generation_domain, target_mode = "free", "free_text2img"
     else:
         generation_domain, target_mode = explicit_route
@@ -249,6 +272,8 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str,
             "positive": positive,
             "negative": negative or None,
             "json": parsed_json,
+            "resolved_parts": [part.to_request_payload() for part in resolved_parts],
+            "intent_source": intent_source,
         },
         generation_domain,
         target_mode,
@@ -276,12 +301,14 @@ def build_generation_request(
     intent, prompt_input, generation_domain, target_mode = _build_prompt_input(text)
 
     if dictionary_root is not None:
+        intent_source = prompt_input.get("intent_source")
+        if not isinstance(intent_source, str) or not intent_source.strip():
+            intent_source = text if prompt_input["mode"] == "text" else prompt_input["positive"]
+        intent = _enrich_character_intent(parse_intent(intent_source, dictionary_root), intent_source)
+
         if prompt_input["mode"] == "text":
-            intent = _enrich_character_intent(parse_intent(text, dictionary_root), text)
             generation_domain, target_mode = _route_for_intent(intent)
         else:
-            positive_text = prompt_input["positive"]
-            intent = _enrich_character_intent(parse_intent(positive_text, dictionary_root), positive_text)
             parsed_json = prompt_input.get("json")
             explicit_mode = parsed_json.get("target_mode") if isinstance(parsed_json, dict) else None
             explicit_route = _normalize_explicit_mode(explicit_mode)
