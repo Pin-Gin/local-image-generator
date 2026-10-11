@@ -11,6 +11,21 @@ database/*.db
 database/*.sqlite
 database/*.sqlite3
 
+# Local AI persistent runtime store
+learning/local-ai/store/*
+!learning/local-ai/store/json-parts/
+!learning/local-ai/store/knowledge/
+!learning/local-ai/store/sources/
+!learning/local-ai/store/staging/
+learning/local-ai/store/json-parts/*
+!learning/local-ai/store/json-parts/.gitkeep
+learning/local-ai/store/knowledge/*
+!learning/local-ai/store/knowledge/.gitkeep
+learning/local-ai/store/sources/*
+!learning/local-ai/store/sources/.gitkeep
+learning/local-ai/store/staging/*
+!learning/local-ai/store/staging/.gitkeep
+
 # Local rendering-learning data
 learning/rendering/train_config.local.json
 learning/rendering/output/*
@@ -41,6 +56,7 @@ venv/
 .env
 .env.*
 !.env.example
+!.env.local-ai.example
 
 # Large model/runtime files
 *.safetensors
