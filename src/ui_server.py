@@ -11,6 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 from chat_contract import build_generation_request, list_profile_ids
 from generation_bridge import run_chat_generation
+from learning_registry import load_registry, resolve_registry_path, select_assets_with_local_ai
 from local_ai_client import LocalAIClient, load_local_ai_config
 
 
@@ -55,6 +56,30 @@ class Handler(SimpleHTTPRequestHandler):
             raise ValueError("body_must_be_object")
         return payload
 
+    def _local_ai_client(self) -> LocalAIClient:
+        return LocalAIClient(load_local_ai_config(LOCAL_AI_CONFIG_PATH))
+
+    def _attach_learned_asset_selection(
+        self,
+        request_payload: dict[str, Any],
+        *,
+        user_text: str,
+    ) -> dict[str, Any]:
+        generation_domain = request_payload.get("generation_domain")
+        if generation_domain not in {"free", "memoriela"}:
+            raise ValueError("generation_domain must be resolved before learned asset selection")
+
+        registry_path = resolve_registry_path(ROOT)
+        registry = load_registry(registry_path)
+        selection = select_assets_with_local_ai(
+            self._local_ai_client(),
+            registry,
+            user_text=user_text,
+            generation_domain=generation_domain,
+        )
+        request_payload["learning"] = selection.to_request_payload()
+        return request_payload
+
     def _build_request_from_body(self, payload: dict[str, Any]) -> dict[str, Any]:
         user_text = payload.get("user_text")
         profile_id = payload.get("profile_id")
@@ -72,16 +97,14 @@ class Handler(SimpleHTTPRequestHandler):
         if seed is not None and (not isinstance(seed, int) or isinstance(seed, bool)):
             raise ValueError("seed must be an integer or null")
 
-        return build_generation_request(
+        request_payload = build_generation_request(
             user_text,
             profile_id,
             dictionary_root=INTENT_ROOT,
             seed_mode=seed_mode,
             seed=seed,
         )
-
-    def _local_ai_client(self) -> LocalAIClient:
-        return LocalAIClient(load_local_ai_config(LOCAL_AI_CONFIG_PATH))
+        return self._attach_learned_asset_selection(request_payload, user_text=user_text)
 
     def _serve_generated_file(self) -> bool:
         request_path = urlsplit(self.path).path
@@ -127,6 +150,39 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as exc:
                 self._send_json(
                     HTTPStatus.SERVICE_UNAVAILABLE,
+                    {
+                        "error": str(exc) or exc.__class__.__name__,
+                        "error_type": exc.__class__.__name__,
+                    },
+                )
+            return
+        if self.path == "/api/learning-registry":
+            try:
+                registry_path = resolve_registry_path(ROOT)
+                registry = load_registry(registry_path)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "registry": {
+                            "registry_version": registry["registry_version"],
+                            "asset_count": len(registry["assets"]),
+                            "assets": [
+                                {
+                                    "asset_id": asset["asset_id"],
+                                    "enabled": asset["enabled"],
+                                    "selection_mode": asset["selection_mode"],
+                                    "domains": asset["domains"],
+                                    "category": asset["category"],
+                                    "runtime_type": asset["runtime"]["type"],
+                                }
+                                for asset in registry["assets"]
+                            ],
+                        }
+                    },
+                )
+            except Exception as exc:
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
                     {
                         "error": str(exc) or exc.__class__.__name__,
                         "error_type": exc.__class__.__name__,
@@ -223,6 +279,8 @@ class Handler(SimpleHTTPRequestHandler):
                         "manifest_sha256": result.manifest_sha256,
                         "generation_plan_path": str(result.generation_plan_path),
                         "database_path": str(result.database_path),
+                        "generation_mode": result.generation_mode,
+                        "learned_asset_ids": list(result.learned_asset_ids),
                     },
                 },
             )
