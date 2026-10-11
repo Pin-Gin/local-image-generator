@@ -14,7 +14,7 @@ def repository_root() -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify the project-local Ollama runtime and a configured model role")
     parser.add_argument("--role", default="learn", choices=("learn", "dev"))
-    parser.add_argument("--prompt", default="短く自己紹介してください。")
+    parser.add_argument("--prompt", default="Give a short self-introduction.")
     parser.add_argument("--image", type=Path)
     args = parser.parse_args()
 
@@ -57,6 +57,15 @@ def main() -> int:
     except Exception as exc:
         print(f"[LOCAL-AI:FAIL] chat: {exc}", file=sys.stderr)
         return 4
+
+    if not result.content.strip():
+        print("[LOCAL-AI:FAIL] model returned empty content", file=sys.stderr)
+        print(f"[LOCAL-AI:DIAG] thinking_present={bool(result.thinking and result.thinking.strip())}", file=sys.stderr)
+        if result.prompt_eval_count is not None:
+            print(f"prompt_eval_count={result.prompt_eval_count}", file=sys.stderr)
+        if result.eval_count is not None:
+            print(f"eval_count={result.eval_count}", file=sys.stderr)
+        return 5
 
     print("[LOCAL-AI:CHAT:OK]")
     print(f"model={result.model}")
