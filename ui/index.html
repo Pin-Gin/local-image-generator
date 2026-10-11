@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MEMORIELA Local Image Generator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>MEMORIELA</h1>
+      <p>Local Image Generator</p>
+    </header>
+
+    <section class="panel">
+      <label for="profile">Profile</label>
+      <select id="profile"></select>
+    </section>
+
+    <section id="messages" class="messages">
+      <div class="message system">生成したい内容を入力してください。現段階では入力内容をGeneration Request JSONへ変換するところまでです。</div>
+    </section>
+
+    <form id="chat-form" class="composer">
+      <textarea id="prompt" rows="4" placeholder="例：ゆらを白背景で正面立ちにして"></textarea>
+      <button type="submit">JSONを作成</button>
+    </form>
+
+    <section class="panel">
+      <h2>Generation Request JSON</h2>
+      <pre id="json-preview">未作成</pre>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
