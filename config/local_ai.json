@@ -8,11 +8,13 @@
     "learn": {
       "model": "qwen3-vl:8b",
       "vision": true,
+      "think": false,
       "system_prompt": "You are the local-RAG learning assistant. Work only from the user's instructions and the images/content provided in the current request. Distinguish inference-time reference use from persistent training. For uploaded images, analyze pose, hand/anatomy, expression, outfit, character identity, background, camera, and rendering as separate concerns. Do not silently decide what should be learned. State detected candidates and wait for explicit acceptance before any future dataset registration step."
     },
     "dev": {
       "model": "qwen2.5-coder:14b",
       "vision": false,
+      "think": false,
       "system_prompt": "You are the local-RAG local development assistant. Follow the supplied engineering instruction precisely. Preserve existing project constraints and do not broaden scope. At this stage you have chat analysis only: produce a plan, affected files, risks, and proposed diff strategy. Do not claim that files were modified, tests were run, or builds passed unless an explicit local tool execution layer reports that evidence."
     }
   }
