@@ -98,6 +98,7 @@ class OracleKnowledgeStore:
                 schema_row = cursor.fetchone()
         return {
             "configured": True,
+            "online": True,
             "dsn": self.dsn,
             "schema": schema_row[0] if schema_row else self.user,
             "schema_version": str(row[0]),
@@ -112,20 +113,23 @@ class OracleKnowledgeStore:
         pattern = f"%{text.casefold()}%"
         sql = """
             SELECT KNOWLEDGE_ID, KIND, TITLE, SUMMARY, STATUS, SOURCE_TYPE, SOURCE_REF, CONTENT_JSON
-            FROM LR_KNOWLEDGE_ITEM
-            WHERE STATUS = 'accepted'
-              AND (
-                LOWER(TITLE) LIKE :pattern
-                OR LOWER(NVL(SUMMARY, '')) LIKE :pattern
-                OR LOWER(DBMS_LOB.SUBSTR(CONTENT_JSON, 4000, 1)) LIKE :pattern
-              )
-            ORDER BY UPDATED_AT DESC
-            FETCH FIRST :limit ROWS ONLY
+            FROM (
+              SELECT KNOWLEDGE_ID, KIND, TITLE, SUMMARY, STATUS, SOURCE_TYPE, SOURCE_REF, CONTENT_JSON, UPDATED_AT
+              FROM LR_KNOWLEDGE_ITEM
+              WHERE STATUS = 'accepted'
+                AND (
+                  LOWER(TITLE) LIKE :pattern
+                  OR LOWER(NVL(SUMMARY, '')) LIKE :pattern
+                  OR LOWER(DBMS_LOB.SUBSTR(CONTENT_JSON, 4000, 1)) LIKE :pattern
+                )
+              ORDER BY UPDATED_AT DESC
+            )
+            WHERE ROWNUM <= :row_limit
         """
         results: list[dict[str, Any]] = []
         with self._connect() as connection:
             with connection.cursor() as cursor:
-                cursor.execute(sql, pattern=pattern, limit=limit)
+                cursor.execute(sql, pattern=pattern, row_limit=limit)
                 for row in cursor:
                     raw_json = row[7].read() if hasattr(row[7], "read") else row[7]
                     try:
