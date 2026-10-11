@@ -67,6 +67,15 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _append_prompt(base: str, additions: list[str]) -> str:
+    parts = [base.strip()]
+    for value in additions:
+        text = value.strip()
+        if text and text not in parts:
+            parts.append(text)
+    return ", ".join(parts)
+
+
 def find_profile_path(profiles_root: Path, profile_id: str) -> Path:
     for path in sorted(profiles_root.glob("*.json")):
         try:
@@ -87,8 +96,18 @@ def build_generation_plan(
     intent = request.get("intent")
     if not isinstance(intent, dict):
         raise ValueError("request.intent must be an object")
-    if intent.get("status") != "parsed":
-        raise ValueError("Generation requires request.intent.status=parsed")
+    if intent.get("status") not in {"parsed", "unparsed", "needs_confirmation"}:
+        raise ValueError("request.intent.status is invalid")
+
+    prompt_input = request.get("prompt_input")
+    if not isinstance(prompt_input, dict):
+        raise ValueError("request.prompt_input must be an object")
+    freeform_positive = prompt_input.get("positive")
+    freeform_negative = prompt_input.get("negative")
+    if not isinstance(freeform_positive, str) or not freeform_positive.strip():
+        raise ValueError("request.prompt_input.positive must be a non-empty string")
+    if freeform_negative is not None and not isinstance(freeform_negative, str):
+        raise ValueError("request.prompt_input.negative must be string or null")
 
     profile_id = request.get("profile_id")
     if not isinstance(profile_id, str) or not profile_id:
@@ -102,8 +121,11 @@ def build_generation_plan(
     if not isinstance(base_prompt, dict):
         raise ValueError("profile.prompt must be an object")
     positive = base_prompt.get("positive")
+    negative = base_prompt.get("negative")
     if not isinstance(positive, str) or not positive.strip():
         raise ValueError("profile.prompt.positive must be a non-empty string")
+    if not isinstance(negative, str):
+        raise ValueError("profile.prompt.negative must be a string")
 
     fragments: list[str] = []
     for category, mapping in INTENT_PROMPT_FRAGMENTS.items():
@@ -113,12 +135,15 @@ def build_generation_plan(
         if not isinstance(value, str):
             raise ValueError(f"request.intent.{category} must be string or null")
         fragment = mapping.get(value)
-        if fragment is None:
-            raise ValueError(f"Unsupported normalized intent: {category}={value}")
-        fragments.append(fragment)
+        if fragment is not None:
+            fragments.append(fragment)
 
-    effective_positive = ", ".join([positive.strip(), *fragments]) if fragments else positive.strip()
-    derived["prompt"]["positive"] = effective_positive
+    derived["prompt"]["positive"] = _append_prompt(
+        positive,
+        [*fragments, freeform_positive],
+    )
+    if isinstance(freeform_negative, str) and freeform_negative.strip():
+        derived["prompt"]["negative"] = _append_prompt(negative, [freeform_negative])
 
     options = request.get("options")
     if isinstance(options, dict):
@@ -133,6 +158,7 @@ def build_generation_plan(
         "source": request.get("source"),
         "user_text": request.get("user_text"),
         "normalized_intent": intent,
+        "prompt_input": prompt_input,
         "base_profile_path": str(profile_path.relative_to(root)),
         "base_profile_sha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
     }
