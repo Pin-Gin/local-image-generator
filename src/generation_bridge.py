@@ -11,6 +11,7 @@ from typing import Any
 from comfyui_client import run_workflow_and_download, upload_input_image
 from compiler import CompiledGeneration, compile_generation
 from database import import_manifest, initialize_database
+from learning_registry import load_registry, resolve_registry_path, resolve_selected_assets
 from manifest import build_generation_manifest, write_manifest
 
 
@@ -56,6 +57,7 @@ class ChatGenerationResult:
     manifest_sha256: str
     database_path: Path
     generation_mode: str
+    learned_asset_ids: tuple[str, ...]
 
 
 def _sha256_bytes(raw: bytes) -> str:
@@ -140,6 +142,40 @@ def find_profile_path(profiles_root: Path, profile_id: str) -> Path:
     raise ValueError(f"Unknown profile_id: {profile_id}")
 
 
+def _resolve_learning_for_plan(
+    root: Path,
+    request: dict[str, Any],
+    generation_domain: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    learning = request.get("learning")
+    if learning is None:
+        return [], None
+    if not isinstance(learning, dict):
+        raise ValueError("request.learning must be an object")
+
+    selected_asset_ids = learning.get("selected_asset_ids")
+    registry_version = learning.get("registry_version")
+    if not isinstance(selected_asset_ids, list):
+        raise ValueError("request.learning.selected_asset_ids must be an array")
+    if not isinstance(registry_version, int) or isinstance(registry_version, bool):
+        raise ValueError("request.learning.registry_version must be an integer")
+
+    registry_path = resolve_registry_path(root)
+    registry = load_registry(registry_path)
+    if registry["registry_version"] != registry_version:
+        raise ValueError(
+            "learning registry changed after AI selection: "
+            f"selected_version={registry_version} current_version={registry['registry_version']}"
+        )
+
+    assets = resolve_selected_assets(
+        registry,
+        selected_asset_ids=selected_asset_ids,
+        generation_domain=generation_domain,
+    )
+    return assets, learning
+
+
 def build_generation_plan(
     root: Path,
     request: dict[str, Any],
@@ -176,6 +212,7 @@ def build_generation_plan(
 
     if target_mode in FREE_MODES:
         effective_profile_id = FREE_PROFILE_ID
+        generation_domain = "free"
     else:
         character_id = intent.get("character")
         if not isinstance(character_id, str) or character_id not in MEMORIELA_PROFILE_BY_CHARACTER:
@@ -183,6 +220,44 @@ def build_generation_plan(
                 f"MEMORIELA character route is not registered yet: {character_id or 'unknown'}"
             )
         effective_profile_id = MEMORIELA_PROFILE_BY_CHARACTER[character_id]
+        generation_domain = "memoriela"
+
+    learned_assets, learning_selection = _resolve_learning_for_plan(root, request, generation_domain)
+    learned_positive: list[str] = []
+    learned_negative: list[str] = []
+    learned_loras: list[dict[str, Any]] = []
+    learned_asset_summary: list[dict[str, Any]] = []
+
+    for asset in learned_assets:
+        runtime = asset["runtime"]
+        runtime_type = runtime["type"]
+        if runtime_type == "prompt":
+            if runtime["positive"]:
+                learned_positive.append(runtime["positive"])
+            if runtime["negative"]:
+                learned_negative.append(runtime["negative"])
+        elif runtime_type == "lora":
+            if runtime["trigger"]:
+                learned_positive.append(runtime["trigger"])
+            learned_loras.append(
+                {
+                    "asset_id": asset["asset_id"],
+                    "lora_name": runtime["lora_name"],
+                    "strength_model": runtime["strength_model"],
+                    "strength_clip": runtime["strength_clip"],
+                }
+            )
+        else:
+            raise ValueError(
+                f"AI-selected asset has unsupported conditional runtime: {asset['asset_id']} ({runtime_type})"
+            )
+        learned_asset_summary.append(
+            {
+                "asset_id": asset["asset_id"],
+                "category": asset["category"],
+                "runtime_type": runtime_type,
+            }
+        )
 
     profile_path = find_profile_path(profiles_root, effective_profile_id)
     base_profile = _load_json(profile_path)
@@ -210,6 +285,7 @@ def build_generation_plan(
     workflow["sampler_name"] = shared_generation["sampler_name"]
     workflow["scheduler"] = shared_generation["scheduler"]
     derived["rendering_lora"] = copy.deepcopy(shared_rendering["lora"])
+    derived["learned_loras"] = learned_loras
 
     fragments: list[str] = []
     for category, mapping in INTENT_PROMPT_FRAGMENTS.items():
@@ -226,14 +302,13 @@ def build_generation_plan(
         workflow["mode"] = "img2img"
         derived["prompt"]["positive"] = _append_prompt(
             positive,
-            [shared_positive, *fragments, freeform_positive],
+            [shared_positive, *fragments, *learned_positive, freeform_positive],
         )
-        negative_additions = [shared_negative]
+        negative_additions = [shared_negative, *learned_negative]
         if isinstance(freeform_negative, str) and freeform_negative.strip():
             negative_additions.append(freeform_negative)
         derived["prompt"]["negative"] = _append_prompt(negative, negative_additions)
         generation_mode = "memoriela_yura_img2img"
-        generation_domain = "memoriela"
     else:
         workflow["mode"] = "text2img"
         workflow["template"] = "workflows/sdxl_text2img_api.json"
@@ -248,14 +323,13 @@ def build_generation_plan(
         ]
         derived["prompt"]["positive"] = _append_prompt(
             "",
-            [shared_positive, *generic_fragments, freeform_positive],
+            [shared_positive, *generic_fragments, *learned_positive, freeform_positive],
         )
-        additions = [shared_negative, "blurry, low quality"]
+        additions = [shared_negative, *learned_negative, "blurry, low quality"]
         if isinstance(freeform_negative, str) and freeform_negative.strip():
             additions.append(freeform_negative)
         derived["prompt"]["negative"] = _append_prompt("", additions)
         generation_mode = "free_text2img"
-        generation_domain = "free"
 
     options = request.get("options")
     if isinstance(options, dict):
@@ -282,6 +356,9 @@ def build_generation_plan(
         "effective_profile_id": effective_profile_id,
         "base_profile_path": str(profile_path.relative_to(root)),
         "base_profile_sha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
+        "learning_selection": learning_selection,
+        "learned_assets": learned_asset_summary,
+        "learned_asset_ids": [asset["asset_id"] for asset in learned_assets],
     }
 
     plan_bytes = _canonical_json_bytes(derived)
@@ -355,15 +432,21 @@ def run_chat_generation(
         generation_timeout_seconds=generation_timeout,
     )
 
+    request_context = plan.get("request_context", {})
+    learned_asset_ids = request_context.get("learned_asset_ids", [])
+    if not isinstance(learned_asset_ids, list):
+        learned_asset_ids = []
+
     manifest_payload = build_generation_manifest(compiled, result, result.output_path)
     manifest_payload["generation_id"] = generation_id
     manifest_payload["request"] = request
     manifest_payload["shared_rendering"] = plan.get("shared_rendering")
+    manifest_payload["learned_assets"] = request_context.get("learned_assets", [])
     manifest_payload["generation_plan"] = {
         "path": str(plan_path),
         "sha256": _sha256_bytes(plan_path.read_bytes()),
         "mode": mode,
-        "domain": plan.get("request_context", {}).get("generation_domain"),
+        "domain": request_context.get("generation_domain"),
     }
     manifest_path = run_dir / "manifest.json"
     manifest_sha256 = write_manifest(manifest_path, manifest_payload)
@@ -381,5 +464,6 @@ def run_chat_generation(
         manifest_path=manifest_path,
         manifest_sha256=manifest_sha256,
         database_path=database_path,
-        generation_mode=str(plan.get("request_context", {}).get("generation_mode", mode)),
+        generation_mode=str(request_context.get("generation_mode", mode)),
+        learned_asset_ids=tuple(str(asset_id) for asset_id in learned_asset_ids),
     )
