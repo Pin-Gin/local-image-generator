@@ -60,6 +60,7 @@ def main() -> int:
         "calm neutral expression",
         "preserve the referenced hair identity and hairstyle",
         "2D anime illustration",
+        TEXT,
     )
     for fragment in required_fragments:
         if fragment not in positive:
@@ -83,12 +84,72 @@ def main() -> int:
         raise AssertionError(f"invalid random seed: {random_seed}")
     assert_plan_seed(random_request, random_seed)
 
+    freeform_text = "まだ辞書に登録していない青い傘を持たせる"
+    freeform_request = build_generation_request(
+        freeform_text,
+        PROFILE,
+        source="cli",
+        dictionary_root=INTENT_ROOT,
+        seed_mode="FIXED",
+        seed=7,
+    )
+    if freeform_request["intent"]["status"] != "unparsed":
+        raise AssertionError("freeform test must remain unparsed")
+    freeform_plan_path = assert_plan_seed(freeform_request, 7)
+    freeform_plan = json.loads(freeform_plan_path.read_text(encoding="utf-8"))
+    if freeform_text not in freeform_plan["prompt"]["positive"]:
+        raise AssertionError("freeform text was not passed to effective positive prompt")
+
+    json_text = json.dumps(
+        {
+            "positive": "holding a blue umbrella, light rain",
+            "negative": "closed eyes",
+            "background": "school gate",
+        },
+        ensure_ascii=False,
+    )
+    json_request = build_generation_request(
+        json_text,
+        PROFILE,
+        source="cli",
+        dictionary_root=INTENT_ROOT,
+        seed_mode="FIXED",
+        seed=8,
+    )
+    if json_request["prompt_input"]["mode"] != "json":
+        raise AssertionError("JSON input mode was not detected")
+    json_plan_path = assert_plan_seed(json_request, 8)
+    json_plan = json.loads(json_plan_path.read_text(encoding="utf-8"))
+    if "holding a blue umbrella, light rain" not in json_plan["prompt"]["positive"]:
+        raise AssertionError("JSON positive prompt was not applied")
+    if "closed eyes" not in json_plan["prompt"]["negative"]:
+        raise AssertionError("JSON negative prompt was not applied")
+
+    arbitrary_json_text = json.dumps(
+        {"background": "school rooftop", "pose": "sitting", "weather": "sunset"},
+        ensure_ascii=False,
+    )
+    arbitrary_request = build_generation_request(
+        arbitrary_json_text,
+        PROFILE,
+        source="cli",
+        dictionary_root=INTENT_ROOT,
+        seed_mode="FIXED",
+        seed=9,
+    )
+    arbitrary_plan_path = assert_plan_seed(arbitrary_request, 9)
+    arbitrary_plan = json.loads(arbitrary_plan_path.read_text(encoding="utf-8"))
+    if "school rooftop" not in arbitrary_plan["prompt"]["positive"]:
+        raise AssertionError("arbitrary JSON values were not converted into prompt text")
+
     print("[GENERATION_PLAN:OK]")
     print(f"request_id={request['request_id']}")
     print(f"plan={plan_path}")
     print(f"intent={request['intent']}")
     print(f"fixed_seed={request['options']['seed']}")
     print(f"random_seed={random_seed}")
+    print(f"freeform_mode={freeform_request['prompt_input']['mode']}")
+    print(f"json_mode={json_request['prompt_input']['mode']}")
     print(f"effective_positive={positive}")
     return 0
 
