@@ -11,7 +11,8 @@
     "user_text",
     "profile_id",
     "intent",
-    "prompt_input"
+    "prompt_input",
+    "target_mode"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -46,6 +47,7 @@
       },
       "additionalProperties": false
     },
+    "target_mode": {"enum": ["yura_img2img", "generic_text2img"]},
     "options": {
       "type": "object",
       "properties": {
