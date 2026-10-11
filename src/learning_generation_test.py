@@ -58,9 +58,18 @@ class FakeClient:
     def __init__(self, response: str) -> None:
         self.response = response
 
-    def chat(self, role: str, message: str, *, history=None, images_base64=None):
+    def chat(
+        self,
+        role: str,
+        message: str,
+        *,
+        history=None,
+        images_base64=None,
+        json_mode: bool = False,
+    ):
         assert role == "generate"
         assert "PRE-GENERATION" in message
+        assert json_mode is True
         return SimpleNamespace(model="fake-selector", content=self.response)
 
 
