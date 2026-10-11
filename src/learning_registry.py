@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ class LearnedAssetSelection:
     registry_version: int
     selected_asset_ids: tuple[str, ...]
     selector_model: str
+    reason: str
     selector_role: str = "generate"
 
     def to_request_payload(self) -> dict[str, Any]:
@@ -28,7 +30,35 @@ class LearnedAssetSelection:
             "selector_role": self.selector_role,
             "selector_model": self.selector_model,
             "selected_asset_ids": list(self.selected_asset_ids),
+            "reason": self.reason,
         }
+
+
+def resolve_registry_path(resource_root: Path) -> Path:
+    """Prefer the mutable repository registry; fall back to bundled data."""
+    candidates: list[Path] = []
+
+    cwd = Path.cwd().resolve()
+    candidates.append(cwd / REGISTRY_RELATIVE_PATH)
+
+    if getattr(sys, "frozen", False):
+        executable = Path(sys.executable).resolve()
+        for ancestor in executable.parents:
+            candidates.append(ancestor / REGISTRY_RELATIVE_PATH)
+
+    candidates.append(resource_root.resolve() / REGISTRY_RELATIVE_PATH)
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate.is_file():
+            return candidate
+
+    searched = ", ".join(str(path) for path in seen)
+    raise FileNotFoundError(f"learning registry not found; searched: {searched}")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -259,6 +289,9 @@ def select_assets_with_local_ai(
     selected = payload.get("selected_asset_ids")
     if not isinstance(selected, list):
         raise ValueError("local AI asset selector selected_asset_ids must be an array")
+    reason = payload.get("reason", "")
+    if not isinstance(reason, str):
+        raise ValueError("local AI asset selector reason must be a string")
 
     eligible_ids = {asset["asset_id"] for asset in assets}
     normalized: list[str] = []
@@ -275,6 +308,7 @@ def select_assets_with_local_ai(
         registry_version=registry["registry_version"],
         selected_asset_ids=tuple(normalized),
         selector_model=result.model,
+        reason=reason.strip(),
     )
 
 
