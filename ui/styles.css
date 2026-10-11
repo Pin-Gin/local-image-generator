@@ -1,0 +1,66 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+  background: #111317;
+  color: #f2f4f8;
+}
+.app {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+}
+header h1 { margin: 0; letter-spacing: 0.08em; }
+header p { margin: 6px 0 24px; color: #aeb6c2; }
+.panel, .messages, .composer {
+  background: #1a1e24;
+  border: 1px solid #2b323c;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 14px;
+}
+.panel label, .panel h2 { display: block; margin: 0 0 10px; }
+select, textarea, button {
+  font: inherit;
+}
+select, textarea {
+  width: 100%;
+  background: #101318;
+  color: #f2f4f8;
+  border: 1px solid #343c47;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.messages {
+  min-height: 300px;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.message {
+  max-width: 82%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin: 8px 0;
+  white-space: pre-wrap;
+}
+.message.user { margin-left: auto; background: #2d3948; }
+.message.assistant { background: #222831; }
+.message.system { color: #b8c0ca; background: #171b20; }
+.composer textarea { resize: vertical; }
+button {
+  margin-top: 10px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #e7e9ed;
+  color: #111317;
+  font-weight: 600;
+}
+pre {
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #d7dde6;
+}
