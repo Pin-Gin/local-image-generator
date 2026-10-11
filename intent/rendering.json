@@ -1,5 +1,14 @@
 {
   "schema_version": 1,
   "category": "rendering",
-  "entries": []
+  "entries": [
+    {
+      "id": "ANIME_2D",
+      "aliases": [
+        "2Dアニメ調",
+        "2Dアニメ",
+        "アニメ調"
+      ]
+    }
+  ]
 }
