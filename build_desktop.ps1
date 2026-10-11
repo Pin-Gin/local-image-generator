@@ -6,12 +6,12 @@ Set-Location $RepoRoot
 Write-Host "[BUILD] Installing desktop dependencies..."
 python -m pip install -r requirements-desktop.txt
 
-Write-Host "[BUILD] Building MEMORIELA.exe..."
+Write-Host "[BUILD] Building local-RAG.exe..."
 python -m PyInstaller `
   --noconfirm `
   --clean `
   --windowed `
-  --name MEMORIELA `
+  --name local-RAG `
   --add-data "ui;ui" `
   --add-data "config;config" `
   --add-data "profiles;profiles" `
@@ -21,4 +21,4 @@ python -m PyInstaller `
   --hidden-import webview.platforms.edgechromium `
   src\desktop_app.py
 
-Write-Host "[BUILD:OK] dist\MEMORIELA\MEMORIELA.exe"
+Write-Host "[BUILD:OK] dist\local-RAG\local-RAG.exe"
