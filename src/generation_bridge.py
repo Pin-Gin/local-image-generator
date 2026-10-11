@@ -35,7 +35,9 @@ INTENT_PROMPT_FRAGMENTS = {
     },
 }
 
-SHARED_RENDERING_PATH = Path("config/shared_rendering.json")
+SHARED_RENDERING_PATH = Path("shared/rendering/matte_dimensional_anime.json")
+FREE_MODES = {"free_text2img", "generic_text2img"}
+MEMORIELA_MODES = {"memoriela_character", "yura_img2img"}
 
 
 @dataclass(frozen=True)
@@ -86,10 +88,13 @@ def _load_shared_rendering(root: Path) -> tuple[dict[str, Any], str, str]:
 
     prompt = payload.get("prompt")
     generation = payload.get("generation")
+    lora = payload.get("lora")
     if not isinstance(prompt, dict):
         raise ValueError("shared rendering prompt must be an object")
     if not isinstance(generation, dict):
         raise ValueError("shared rendering generation must be an object")
+    if not isinstance(lora, dict):
+        raise ValueError("shared rendering lora must be an object")
 
     positive = prompt.get("positive")
     negative = prompt.get("negative")
@@ -108,6 +113,14 @@ def _load_shared_rendering(root: Path) -> tuple[dict[str, Any], str, str]:
     for key, expected_type in required_generation.items():
         if not isinstance(generation.get(key), expected_type):
             raise ValueError(f"shared rendering generation.{key} has invalid type")
+
+    if not isinstance(lora.get("enabled"), bool):
+        raise ValueError("shared rendering lora.enabled must be boolean")
+    if not isinstance(lora.get("lora_name"), str) or not lora.get("lora_name"):
+        raise ValueError("shared rendering lora.lora_name must be a non-empty string")
+    for key in ("strength_model", "strength_clip"):
+        if not isinstance(lora.get(key), (int, float)):
+            raise ValueError(f"shared rendering lora.{key} must be numeric")
 
     return payload, positive.strip(), negative.strip()
 
@@ -146,8 +159,12 @@ def build_generation_plan(
         raise ValueError("request.prompt_input.negative must be string or null")
 
     target_mode = request.get("target_mode")
-    if target_mode not in {"yura_img2img", "generic_text2img"}:
-        raise ValueError("request.target_mode must be yura_img2img or generic_text2img")
+    if target_mode not in FREE_MODES | MEMORIELA_MODES:
+        raise ValueError("request.target_mode must be free_text2img or memoriela_character")
+
+    generation_domain = request.get("generation_domain")
+    if generation_domain not in {"free", "memoriela", None}:
+        raise ValueError("request.generation_domain must be free or memoriela")
 
     profile_id = request.get("profile_id")
     if not isinstance(profile_id, str) or not profile_id:
@@ -178,6 +195,7 @@ def build_generation_plan(
     workflow["cfg"] = shared_generation["cfg"]
     workflow["sampler_name"] = shared_generation["sampler_name"]
     workflow["scheduler"] = shared_generation["scheduler"]
+    derived["rendering_lora"] = copy.deepcopy(shared_rendering["lora"])
 
     fragments: list[str] = []
     for category, mapping in INTENT_PROMPT_FRAGMENTS.items():
@@ -190,7 +208,12 @@ def build_generation_plan(
         if fragment is not None:
             fragments.append(fragment)
 
-    if target_mode == "yura_img2img":
+    if target_mode in MEMORIELA_MODES:
+        character_id = intent.get("character")
+        if character_id != "YURA":
+            raise ValueError(
+                f"MEMORIELA character route is not registered yet: {character_id or 'unknown'}"
+            )
         workflow["mode"] = "img2img"
         derived["prompt"]["positive"] = _append_prompt(
             positive,
@@ -200,12 +223,13 @@ def build_generation_plan(
         if isinstance(freeform_negative, str) and freeform_negative.strip():
             negative_additions.append(freeform_negative)
         derived["prompt"]["negative"] = _append_prompt(negative, negative_additions)
-        generation_mode = "yura_img2img"
+        generation_mode = "memoriela_yura_img2img"
+        generation_domain = "memoriela"
     else:
         workflow["mode"] = "text2img"
         workflow["template"] = "workflows/sdxl_text2img_api.json"
         workflow["denoise"] = 1.0
-        workflow["filename_prefix"] = "LOCAL_RAG_FREEFORM"
+        workflow["filename_prefix"] = "LOCAL_RAG_FREE"
         generic_fragments = [
             fragment
             for category, mapping in INTENT_PROMPT_FRAGMENTS.items()
@@ -217,12 +241,12 @@ def build_generation_plan(
             "",
             [shared_positive, *generic_fragments, freeform_positive],
         )
-        generic_negative = "blurry, low quality"
-        additions = [shared_negative, generic_negative]
+        additions = [shared_negative, "blurry, low quality"]
         if isinstance(freeform_negative, str) and freeform_negative.strip():
             additions.append(freeform_negative)
         derived["prompt"]["negative"] = _append_prompt("", additions)
-        generation_mode = "generic_text2img"
+        generation_mode = "free_text2img"
+        generation_domain = "free"
 
     options = request.get("options")
     if isinstance(options, dict):
@@ -239,10 +263,12 @@ def build_generation_plan(
         "user_text": request.get("user_text"),
         "normalized_intent": intent,
         "prompt_input": prompt_input,
+        "generation_domain": generation_domain,
         "target_mode": target_mode,
         "generation_mode": generation_mode,
         "rendering_id": shared_rendering.get("rendering_id"),
         "rendering_version": shared_rendering.get("rendering_version"),
+        "rendering_lora_enabled": shared_rendering["lora"].get("enabled"),
         "base_profile_path": str(profile_path.relative_to(root)),
         "base_profile_sha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
     }
@@ -326,6 +352,7 @@ def run_chat_generation(
         "path": str(plan_path),
         "sha256": _sha256_bytes(plan_path.read_bytes()),
         "mode": mode,
+        "domain": plan.get("request_context", {}).get("generation_domain"),
     }
     manifest_path = run_dir / "manifest.json"
     manifest_sha256 = write_manifest(manifest_path, manifest_payload)
