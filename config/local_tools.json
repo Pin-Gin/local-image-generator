@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "git": {
+    "read_only": true,
+    "repositories": [
+      {
+        "repo_id": "local-image-generator",
+        "path": ".",
+        "optional": false
+      },
+      {
+        "repo_id": "memoriela",
+        "path_env": "LOCALRAG_MEMORIELA_ROOT",
+        "optional": true
+      }
+    ],
+    "allowed_actions": [
+      "status",
+      "log",
+      "diff",
+      "list_files",
+      "read_file",
+      "search"
+    ]
+  },
+  "oracle": {
+    "env_file": ".env.local-ai",
+    "dsn_env": "LOCALRAG_ORACLE_DSN",
+    "user_env": "LOCALRAG_ORACLE_USER",
+    "password_env": "LOCALRAG_ORACLE_PASSWORD"
+  },
+  "knowledge_store": {
+    "root": "learning/local-ai/store",
+    "json_parts": "json-parts",
+    "knowledge": "knowledge",
+    "sources": "sources",
+    "staging": "staging"
+  },
+  "role_tools": {
+    "generate": [
+      "knowledge_search",
+      "json_part_get"
+    ],
+    "learn": [
+      "knowledge_search",
+      "json_part_get",
+      "git_read_file",
+      "git_search"
+    ],
+    "dev": [
+      "git_status",
+      "git_log",
+      "git_diff",
+      "git_list_files",
+      "git_read_file",
+      "git_search",
+      "knowledge_search",
+      "json_part_get"
+    ]
+  }
+}
