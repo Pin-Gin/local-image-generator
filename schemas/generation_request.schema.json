@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://memoriela.local/schemas/generation_request.schema.json",
-  "title": "MEMORIELA Generation Request",
+  "$id": "https://local-rag.local/schemas/generation_request.schema.json",
+  "title": "local-RAG Generation Request",
   "type": "object",
   "required": [
     "schema_version",
@@ -12,6 +12,7 @@
     "profile_id",
     "intent",
     "prompt_input",
+    "generation_domain",
     "target_mode"
   ],
   "properties": {
@@ -21,12 +22,17 @@
     "source": {"enum": ["chat_ui", "cli", "api"]},
     "user_text": {"type": "string", "minLength": 1},
     "profile_id": {"type": "string", "minLength": 1},
+    "generation_domain": {"enum": ["free", "memoriela"]},
     "intent": {
       "type": "object",
       "required": ["status"],
       "properties": {
         "status": {"enum": ["unparsed", "parsed", "needs_confirmation"]},
         "character": {"type": ["string", "null"]},
+        "characters": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
         "outfit": {"type": ["string", "null"]},
         "background": {"type": ["string", "null"]},
         "pose": {"type": ["string", "null"]},
@@ -47,7 +53,31 @@
       },
       "additionalProperties": false
     },
-    "target_mode": {"enum": ["yura_img2img", "generic_text2img"]},
+    "target_mode": {"enum": ["free_text2img", "memoriela_character", "generic_text2img", "yura_img2img"]},
+    "learning": {
+      "type": "object",
+      "required": [
+        "registry_version",
+        "selector",
+        "selector_role",
+        "selector_model",
+        "selected_asset_ids",
+        "reason"
+      ],
+      "properties": {
+        "registry_version": {"type": "integer", "minimum": 1},
+        "selector": {"const": "local-ai"},
+        "selector_role": {"const": "generate"},
+        "selector_model": {"type": "string", "minLength": 1},
+        "selected_asset_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "reason": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
     "options": {
       "type": "object",
       "properties": {
