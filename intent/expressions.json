@@ -1,5 +1,14 @@
 {
   "schema_version": 1,
   "category": "expression",
-  "entries": []
+  "entries": [
+    {
+      "id": "CALM_NEUTRAL",
+      "aliases": [
+        "落ち着いた表情",
+        "ニュートラルな表情",
+        "穏やかなニュートラル表情"
+      ]
+    }
+  ]
 }
