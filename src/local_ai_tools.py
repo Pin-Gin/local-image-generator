@@ -194,10 +194,7 @@ class LocalAIToolbox:
         if name == "json_part_get":
             ref = str(arguments.get("ref", ""))
             if self.oracle.configured():
-                try:
-                    indexed = self.oracle.get_json_part(ref)
-                except Exception:
-                    indexed = None
+                indexed = self.oracle.get_json_part(ref)
                 if indexed is not None:
                     return {"source": "oracle", **indexed}
             part = load_json_part(self.resource_root, ref)
