@@ -49,6 +49,21 @@ def _normalize_comfy_lora_name(value: str) -> str:
     return value.replace("/", "\\")
 
 
+def _validate_lora(value: Any, field_name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field_name} must be an object")
+    lora_name = value.get("lora_name")
+    strength_model = value.get("strength_model")
+    strength_clip = value.get("strength_clip")
+    if not isinstance(lora_name, str) or not lora_name.strip():
+        raise ValueError(f"{field_name}.lora_name must be a non-empty string")
+    if not isinstance(strength_model, (int, float)) or isinstance(strength_model, bool):
+        raise ValueError(f"{field_name}.strength_model must be numeric")
+    if not isinstance(strength_clip, (int, float)) or isinstance(strength_clip, bool):
+        raise ValueError(f"{field_name}.strength_clip must be numeric")
+    return value
+
+
 def _validate_rendering_lora(profile: dict[str, Any]) -> dict[str, Any] | None:
     value = profile.get("rendering_lora")
     if value is None:
@@ -60,17 +75,32 @@ def _validate_rendering_lora(profile: dict[str, Any]) -> dict[str, Any] | None:
         raise ValueError("profile.rendering_lora.enabled must be boolean")
     if not enabled:
         return None
+    return _validate_lora(value, "profile.rendering_lora")
 
-    lora_name = value.get("lora_name")
-    strength_model = value.get("strength_model")
-    strength_clip = value.get("strength_clip")
-    if not isinstance(lora_name, str) or not lora_name.strip():
-        raise ValueError("profile.rendering_lora.lora_name must be a non-empty string")
-    if not isinstance(strength_model, (int, float)):
-        raise ValueError("profile.rendering_lora.strength_model must be numeric")
-    if not isinstance(strength_clip, (int, float)):
-        raise ValueError("profile.rendering_lora.strength_clip must be numeric")
-    return value
+
+def _validate_learned_loras(profile: dict[str, Any]) -> list[dict[str, Any]]:
+    value = profile.get("learned_loras", [])
+    if not isinstance(value, list):
+        raise ValueError("profile.learned_loras must be an array")
+
+    validated: list[dict[str, Any]] = []
+    seen_asset_ids: set[str] = set()
+    seen_lora_names: set[str] = set()
+    for index, item in enumerate(value):
+        validated_item = _validate_lora(item, f"profile.learned_loras[{index}]")
+        asset_id = validated_item.get("asset_id")
+        if not isinstance(asset_id, str) or not asset_id.strip():
+            raise ValueError(f"profile.learned_loras[{index}].asset_id must be a non-empty string")
+        asset_id = asset_id.strip()
+        normalized_name = _normalize_comfy_lora_name(validated_item["lora_name"])
+        if asset_id in seen_asset_ids:
+            raise ValueError(f"duplicate learned LoRA asset_id: {asset_id}")
+        if normalized_name in seen_lora_names:
+            raise ValueError(f"duplicate learned LoRA file: {normalized_name}")
+        seen_asset_ids.add(asset_id)
+        seen_lora_names.add(normalized_name)
+        validated.append(validated_item)
+    return validated
 
 
 def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> CompiledGeneration:
@@ -124,6 +154,13 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
         raise ValueError("profile.prompt.negative must be a string")
 
     rendering_lora = _validate_rendering_lora(profile)
+    learned_loras = _validate_learned_loras(profile)
+
+    if rendering_lora is not None:
+        rendering_name = _normalize_comfy_lora_name(rendering_lora["lora_name"])
+        for learned in learned_loras:
+            if _normalize_comfy_lora_name(learned["lora_name"]) == rendering_name:
+                raise ValueError("learned LoRA duplicates the shared rendering LoRA")
 
     compiled = copy.deepcopy(workflow)
     try:
@@ -149,20 +186,46 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
             sampler = compiled["5"]["inputs"]
             save_node = compiled["7"]["inputs"]
 
+        model_source: list[Any] = ["1", 0]
+        clip_source: list[Any] = ["1", 1]
+        next_lora_node = 90
+
         if rendering_lora is not None:
-            compiled["90"] = {
+            node_id = str(next_lora_node)
+            compiled[node_id] = {
                 "class_type": "LoraLoader",
                 "inputs": {
                     "lora_name": _normalize_comfy_lora_name(rendering_lora["lora_name"]),
                     "strength_model": rendering_lora["strength_model"],
                     "strength_clip": rendering_lora["strength_clip"],
-                    "model": ["1", 0],
-                    "clip": ["1", 1],
+                    "model": model_source,
+                    "clip": clip_source,
                 },
             }
-            positive_node["clip"] = ["90", 1]
-            negative_node["clip"] = ["90", 1]
-            sampler["model"] = ["90", 0]
+            model_source = [node_id, 0]
+            clip_source = [node_id, 1]
+            next_lora_node += 1
+
+        for learned_lora in learned_loras:
+            node_id = str(next_lora_node)
+            compiled[node_id] = {
+                "class_type": "LoraLoader",
+                "inputs": {
+                    "lora_name": _normalize_comfy_lora_name(learned_lora["lora_name"]),
+                    "strength_model": learned_lora["strength_model"],
+                    "strength_clip": learned_lora["strength_clip"],
+                    "model": model_source,
+                    "clip": clip_source,
+                },
+            }
+            model_source = [node_id, 0]
+            clip_source = [node_id, 1]
+            next_lora_node += 1
+
+        if rendering_lora is not None or learned_loras:
+            positive_node["clip"] = clip_source
+            negative_node["clip"] = clip_source
+            sampler["model"] = model_source
 
         sampler["seed"] = workflow_cfg["seed"]
         sampler["steps"] = workflow_cfg["steps"]
