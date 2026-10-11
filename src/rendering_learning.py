@@ -47,6 +47,13 @@ def _reject_placeholder(value: str, context: str) -> None:
         raise ValueError(f"{context} is not configured: {value}")
 
 
+def _comfyui_lora_selector_name(value: str) -> str:
+    # ComfyUI exposes nested LoRAs in LoraLoader's selector using Windows
+    # backslashes (for example: local-rag\rendering\file.safetensors).
+    # The selector value must match that exact representation.
+    return value.replace("/", "\\")
+
+
 def _validate_training_config(config: dict[str, Any]) -> dict[str, Any]:
     if config.get("schema_version") != 1:
         raise ValueError("training config schema_version must be 1")
@@ -124,7 +131,7 @@ def _validate_training_config(config: dict[str, Any]) -> dict[str, Any]:
         "minimum_images": minimum_images,
         "output_dir": output_dir,
         "comfy_lora_dir_value": comfy_lora_dir_value,
-        "comfy_lora_name": comfy_lora_name.replace("\\", "/"),
+        "comfy_lora_name": _comfyui_lora_selector_name(comfy_lora_name),
         "training": training,
     }
 
@@ -146,7 +153,7 @@ def _validate_publish_config(config: dict[str, Any]) -> dict[str, Any]:
         "output_name": output_name,
         "output_dir": _resolve_path(output_dir_value),
         "comfy_lora_dir_value": comfy_lora_dir_value,
-        "comfy_lora_name": comfy_lora_name.replace("\\", "/"),
+        "comfy_lora_name": _comfyui_lora_selector_name(comfy_lora_name),
     }
 
 
