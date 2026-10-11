@@ -467,3 +467,19 @@ def run_chat_generation(
         generation_mode=str(request_context.get("generation_mode", mode)),
         learned_asset_ids=tuple(str(asset_id) for asset_id in learned_asset_ids),
     )
+
+
+_run_legacy_chat_generation = run_chat_generation
+
+
+def run_chat_generation(
+    root: Path,
+    request: dict[str, Any],
+    config: dict[str, Any],
+) -> Any:
+    """Route FREE to the deterministic v2 engine; preserve MEMORIELA legacy planning for now."""
+    if request.get("generation_domain") == "free":
+        from free_runtime import run_free_generation
+
+        return run_free_generation(root, request, config)
+    return _run_legacy_chat_generation(root, request, config)
