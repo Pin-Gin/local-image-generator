@@ -11,6 +11,7 @@ from typing import Any
 
 PART_REF_RE = re.compile(r"^part:([a-z0-9][a-z0-9._-]{1,127})@([1-9][0-9]*)$")
 STORE_RELATIVE_PATH = Path("learning/local-ai/store/json-parts")
+MANUAL_METADATA_KEYS = {"file_name", "description", "schema_version", "document_type", "status"}
 
 
 @dataclass(frozen=True)
@@ -153,6 +154,119 @@ def json_part_filename(part_id: str, version: int) -> str:
     return f"{part_id}.v{version}.json"
 
 
+def _manual_leaf_prompt(key: str, value: Any) -> str:
+    if value is None or isinstance(value, bool):
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+
+    normalized_key = key.strip().casefold()
+    if normalized_key == "hair_color":
+        return f"{text} hair"
+    if normalized_key == "eye_color":
+        return f"{text} eyes"
+    if normalized_key == "hair_accessory":
+        return f"{text} hair accessory"
+    if normalized_key == "gender":
+        return text
+    if normalized_key in {"left_hand", "right_hand"}:
+        side = normalized_key.split("_", 1)[0]
+        return f"{side} hand {text}"
+    if normalized_key in {"left_side", "right_side"}:
+        side = normalized_key.split("_", 1)[0]
+        return f"{side} side {text}"
+    if normalized_key in {
+        "type",
+        "expression",
+        "body_posture",
+        "visible_fingers",
+        "rendering_style",
+        "camera_composition",
+    }:
+        return text
+
+    label = normalized_key.replace("_", " ")
+    return f"{label} {text}".strip()
+
+
+def _flatten_manual_generation(value: Any, *, key: str = "") -> list[str]:
+    fragments: list[str] = []
+    if isinstance(value, dict):
+        for child_key, child_value in value.items():
+            if not isinstance(child_key, str):
+                continue
+            if child_key.casefold() in MANUAL_METADATA_KEYS:
+                continue
+            fragments.extend(_flatten_manual_generation(child_value, key=child_key))
+    elif isinstance(value, list):
+        for child in value:
+            fragments.extend(_flatten_manual_generation(child, key=key))
+    else:
+        fragment = _manual_leaf_prompt(key, value)
+        if fragment:
+            fragments.append(fragment)
+    return fragments
+
+
+def _manual_json_part_fields(
+    payload: dict[str, Any],
+    *,
+    part_id: str,
+    version: int,
+    path: Path,
+) -> tuple[str, str, str, str]:
+    expected_filename = json_part_filename(part_id, version)
+    declared_filename = payload.get("file_name")
+    if declared_filename is not None:
+        if not isinstance(declared_filename, str) or declared_filename.casefold() != expected_filename.casefold():
+            raise ValueError(
+                "manual JSON part file_name does not match the referenced file: "
+                f"declared={declared_filename!r} expected={expected_filename!r}"
+            )
+
+    positive_value = payload.get("positive")
+    negative_value = payload.get("negative")
+    if positive_value is not None and not isinstance(positive_value, str):
+        raise ValueError("manual JSON part positive must be a string when present")
+    if negative_value is not None and not isinstance(negative_value, str):
+        raise ValueError("manual JSON part negative must be a string when present")
+
+    if isinstance(positive_value, str) and positive_value.strip():
+        positive = positive_value.strip()
+    else:
+        content = {
+            key: value
+            for key, value in payload.items()
+            if isinstance(key, str)
+            and key.casefold() not in MANUAL_METADATA_KEYS | {"negative", "negative_prompt"}
+        }
+        fragments = _flatten_manual_generation(content)
+        deduplicated = list(dict.fromkeys(fragment for fragment in fragments if fragment))
+        positive = ", ".join(deduplicated)
+
+    if not positive:
+        raise ValueError(f"manual JSON part contains no usable generation content: {path}")
+
+    negative = negative_value.strip() if isinstance(negative_value, str) else ""
+    if not negative:
+        manual_negative = payload.get("negative_prompt")
+        if manual_negative is not None and not isinstance(manual_negative, str):
+            raise ValueError("manual JSON part negative_prompt must be a string when present")
+        negative = manual_negative.strip() if isinstance(manual_negative, str) else ""
+
+    top_level_content_keys = [
+        key
+        for key in payload
+        if isinstance(key, str)
+        and key.casefold() not in MANUAL_METADATA_KEYS | {"positive", "negative", "negative_prompt"}
+    ]
+    part_type = top_level_content_keys[0] if top_level_content_keys else "manual"
+    description = payload.get("description")
+    name = description.strip() if isinstance(description, str) and description.strip() else part_id
+    return part_type, name, positive, negative
+
+
 def load_json_part(resource_root: Path, ref: str, *, accepted_only: bool = True) -> ResolvedJsonPart:
     part_id, version = parse_part_ref(ref)
     store = resolve_json_part_store(resource_root)
@@ -167,24 +281,39 @@ def load_json_part(resource_root: Path, ref: str, *, accepted_only: bool = True)
         raise RuntimeError(f"invalid JSON part file: {path}: {exc}") from exc
     if not isinstance(payload, dict):
         raise ValueError(f"JSON part root must be an object: {path}")
-    payload = validate_json_part(payload)
 
-    if payload["part_id"] != part_id or payload["version"] != version:
-        raise ValueError(f"JSON part filename/ref does not match document identity: {ref}")
-    if accepted_only and payload["status"] != "accepted":
-        raise ValueError(f"JSON part is not accepted: {ref} status={payload['status']}")
+    if payload.get("document_type") == "local-rag/json-part":
+        canonical = validate_json_part(payload)
+        if canonical["part_id"] != part_id or canonical["version"] != version:
+            raise ValueError(f"JSON part filename/ref does not match document identity: {ref}")
+        if accepted_only and canonical["status"] != "accepted":
+            raise ValueError(f"JSON part is not accepted: {ref} status={canonical['status']}")
 
-    generation = payload["payload"].get("generation", {})
+        generation = canonical["payload"].get("generation", {})
+        part_type = canonical["part_type"]
+        name = canonical["name"]
+        positive = generation.get("positive", "")
+        negative = generation.get("negative", "")
+    else:
+        # Manual structured JSON files live directly in the accepted json-parts store.
+        # Their identity/version comes from the canonical filename/ref; no DB write or file rewrite occurs.
+        part_type, name, positive, negative = _manual_json_part_fields(
+            payload,
+            part_id=part_id,
+            version=version,
+            path=path,
+        )
+
     return ResolvedJsonPart(
         ref=ref,
         part_id=part_id,
         version=version,
-        part_type=payload["part_type"],
-        name=payload["name"],
+        part_type=part_type,
+        name=name,
         path=path,
         sha256=hashlib.sha256(raw).hexdigest(),
-        positive=generation.get("positive", ""),
-        negative=generation.get("negative", ""),
+        positive=positive,
+        negative=negative,
     )
 
 
