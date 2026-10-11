@@ -14,7 +14,7 @@ from authority import AuthorityBundle, resolve_authority_bundle
 class CompiledGeneration:
     profile_path: Path
     profile_sha256: str
-    authority: AuthorityBundle
+    authority: AuthorityBundle | None
     workflow_template_path: Path
     workflow_template_sha256: str
     compiled_workflow_path: Path
@@ -46,14 +46,22 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
     profile = _read_json(profile_path)
     profile_sha256 = _sha256_file(profile_path)
 
-    authority = resolve_authority_bundle(profile, cache_root)
-
     workflow_cfg = profile.get("workflow")
     prompt_cfg = profile.get("prompt")
     if not isinstance(workflow_cfg, dict):
         raise ValueError("profile.workflow must be an object")
     if not isinstance(prompt_cfg, dict):
         raise ValueError("profile.prompt must be an object")
+
+    mode = workflow_cfg.get("mode", "img2img")
+    if mode not in {"img2img", "text2img"}:
+        raise ValueError("profile.workflow.mode must be img2img or text2img")
+
+    # Only character-reference img2img generations need MEMORIELA authority.
+    # Generic text2img must stay fully local and must not call GitHub.
+    authority: AuthorityBundle | None = None
+    if mode == "img2img":
+        authority = resolve_authority_bundle(profile, cache_root)
 
     template_value = workflow_cfg.get("template")
     if not isinstance(template_value, str) or not template_value:
@@ -77,10 +85,6 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
         if not isinstance(value, expected_type):
             raise ValueError(f"profile.workflow.{key} has invalid type")
 
-    mode = workflow_cfg.get("mode", "img2img")
-    if mode not in {"img2img", "text2img"}:
-        raise ValueError("profile.workflow.mode must be img2img or text2img")
-
     positive = prompt_cfg.get("positive")
     negative = prompt_cfg.get("negative")
     if not isinstance(positive, str) or not positive.strip():
@@ -93,6 +97,8 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
         compiled["1"]["inputs"]["ckpt_name"] = workflow_cfg["checkpoint"]
 
         if mode == "img2img":
+            if authority is None:
+                raise RuntimeError("img2img authority was not resolved")
             master_path = profile["authority"]["master_image_path"]
             master_file = authority.files[master_path]
             compiled["2"]["inputs"]["image"] = master_file.local_path.name
