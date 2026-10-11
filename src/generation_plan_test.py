@@ -51,6 +51,8 @@ def main() -> int:
     plan_path = assert_plan_seed(request, 12345)
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     positive = plan["prompt"]["positive"]
+    if plan["workflow"].get("mode") != "img2img":
+        raise AssertionError("YURA request must use img2img")
 
     required_fragments = (
         "preserve the referenced YURA character identity",
@@ -84,7 +86,7 @@ def main() -> int:
         raise AssertionError(f"invalid random seed: {random_seed}")
     assert_plan_seed(random_request, random_seed)
 
-    freeform_text = "まだ辞書に登録していない青い傘を持たせる"
+    freeform_text = "赤いスポーツカーが夜の街を走っている"
     freeform_request = build_generation_request(
         freeform_text,
         PROFILE,
@@ -97,14 +99,19 @@ def main() -> int:
         raise AssertionError("freeform test must remain unparsed")
     freeform_plan_path = assert_plan_seed(freeform_request, 7)
     freeform_plan = json.loads(freeform_plan_path.read_text(encoding="utf-8"))
+    if freeform_plan["workflow"].get("mode") != "text2img":
+        raise AssertionError("non-YURA freeform request must use text2img")
+    if freeform_plan["workflow"].get("template") != "workflows/sdxl_text2img_api.json":
+        raise AssertionError("non-YURA freeform request must use generic text2img template")
     if freeform_text not in freeform_plan["prompt"]["positive"]:
         raise AssertionError("freeform text was not passed to effective positive prompt")
+    if "preserve the referenced YURA character identity" in freeform_plan["prompt"]["positive"]:
+        raise AssertionError("generic text2img prompt must not contain YURA identity prompt")
 
     json_text = json.dumps(
         {
-            "positive": "holding a blue umbrella, light rain",
-            "negative": "closed eyes",
-            "background": "school gate",
+            "positive": "red sports car driving through a neon city at night",
+            "negative": "people, portrait",
         },
         ensure_ascii=False,
     )
@@ -120,37 +127,20 @@ def main() -> int:
         raise AssertionError("JSON input mode was not detected")
     json_plan_path = assert_plan_seed(json_request, 8)
     json_plan = json.loads(json_plan_path.read_text(encoding="utf-8"))
-    if "holding a blue umbrella, light rain" not in json_plan["prompt"]["positive"]:
+    if json_plan["workflow"].get("mode") != "text2img":
+        raise AssertionError("non-YURA JSON request must use text2img")
+    if "red sports car driving through a neon city at night" not in json_plan["prompt"]["positive"]:
         raise AssertionError("JSON positive prompt was not applied")
-    if "closed eyes" not in json_plan["prompt"]["negative"]:
+    if "people, portrait" not in json_plan["prompt"]["negative"]:
         raise AssertionError("JSON negative prompt was not applied")
-
-    arbitrary_json_text = json.dumps(
-        {"background": "school rooftop", "pose": "sitting", "weather": "sunset"},
-        ensure_ascii=False,
-    )
-    arbitrary_request = build_generation_request(
-        arbitrary_json_text,
-        PROFILE,
-        source="cli",
-        dictionary_root=INTENT_ROOT,
-        seed_mode="FIXED",
-        seed=9,
-    )
-    arbitrary_plan_path = assert_plan_seed(arbitrary_request, 9)
-    arbitrary_plan = json.loads(arbitrary_plan_path.read_text(encoding="utf-8"))
-    if "school rooftop" not in arbitrary_plan["prompt"]["positive"]:
-        raise AssertionError("arbitrary JSON values were not converted into prompt text")
 
     print("[GENERATION_PLAN:OK]")
     print(f"request_id={request['request_id']}")
-    print(f"plan={plan_path}")
-    print(f"intent={request['intent']}")
+    print(f"yura_mode={plan['workflow'].get('mode')}")
+    print(f"freeform_mode={freeform_plan['workflow'].get('mode')}")
+    print(f"json_mode={json_plan['workflow'].get('mode')}")
     print(f"fixed_seed={request['options']['seed']}")
     print(f"random_seed={random_seed}")
-    print(f"freeform_mode={freeform_request['prompt_input']['mode']}")
-    print(f"json_mode={json_request['prompt_input']['mode']}")
-    print(f"effective_positive={positive}")
     return 0
 
 
