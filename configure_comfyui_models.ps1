@@ -17,7 +17,9 @@ $ModelDirs = @(
   "loras",
   "controlnet",
   "upscale_models",
-  "vae"
+  "vae",
+  "clip_vision",
+  "ipadapter"
 )
 foreach ($name in $ModelDirs) {
   New-Item -ItemType Directory -Force -Path (Join-Path $ModelRoot $name) | Out-Null
@@ -32,6 +34,8 @@ local_rag:
   controlnet: controlnet
   upscale_models: upscale_models
   vae: vae
+  clip_vision: clip_vision
+  ipadapter: ipadapter
 "@
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -42,7 +46,17 @@ if (Test-Path -LiteralPath $Target -PathType Leaf) {
     if ($Existing.Contains($Block.Trim())) {
       Write-Host "[COMFYUI:MODEL-PATH:ALREADY-CONFIGURED] $Target"
     } else {
-      throw "extra_model_paths.yaml already contains a local_rag section with different content. Review it manually before changing it: $Target"
+      $Pattern = '(?ms)^local_rag:\s*\r?\n(?:^[ \t].*\r?\n?)*'
+      if ($Existing -notmatch $Pattern) {
+        throw "extra_model_paths.yaml contains local_rag but its block could not be parsed safely: $Target"
+      }
+      $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+      $Backup = "$Target.local-rag-backup-$Stamp"
+      Copy-Item -LiteralPath $Target -Destination $Backup
+      $Updated = [regex]::Replace($Existing, $Pattern, $Block.Trim() + "`r`n", 1)
+      [System.IO.File]::WriteAllText($Target, $Updated, $Utf8NoBom)
+      Write-Host "[COMFYUI:MODEL-PATH:BACKUP] $Backup"
+      Write-Host "[COMFYUI:MODEL-PATH:UPDATED] $Target"
     }
   } else {
     $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -68,4 +82,4 @@ if (Test-Path -LiteralPath $Checkpoint -PathType Leaf) {
   Write-Host "[MODEL:CHECKPOINT:WARN] sd_xl_base_1.0.safetensors was not found under project models/checkpoints"
 }
 
-Write-Host "[NEXT] Restart ComfyUI, then confirm sd_xl_base_1.0.safetensors appears in CheckpointLoaderSimple."
+Write-Host "[NEXT] Restart ComfyUI after model-path changes so new model categories are reloaded."
