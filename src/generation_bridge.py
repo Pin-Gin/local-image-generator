@@ -37,6 +37,9 @@ INTENT_PROMPT_FRAGMENTS = {
 
 SHARED_RENDERING_PATH = Path("shared/rendering/matte_dimensional_anime.json")
 FREE_PROFILE_ID = "free-sdxl-v1"
+MEMORIELA_PROFILE_BY_CHARACTER = {
+    "YURA": "yura-working-master-g3",
+}
 FREE_MODES = {"free_text2img", "generic_text2img"}
 MEMORIELA_MODES = {"memoriela_character", "yura_img2img"}
 
@@ -171,7 +174,16 @@ def build_generation_plan(
     if not isinstance(requested_profile_id, str) or not requested_profile_id:
         raise ValueError("request.profile_id must be a non-empty string")
 
-    effective_profile_id = FREE_PROFILE_ID if target_mode in FREE_MODES else requested_profile_id
+    if target_mode in FREE_MODES:
+        effective_profile_id = FREE_PROFILE_ID
+    else:
+        character_id = intent.get("character")
+        if not isinstance(character_id, str) or character_id not in MEMORIELA_PROFILE_BY_CHARACTER:
+            raise ValueError(
+                f"MEMORIELA character route is not registered yet: {character_id or 'unknown'}"
+            )
+        effective_profile_id = MEMORIELA_PROFILE_BY_CHARACTER[character_id]
+
     profile_path = find_profile_path(profiles_root, effective_profile_id)
     base_profile = _load_json(profile_path)
     derived = copy.deepcopy(base_profile)
@@ -211,11 +223,6 @@ def build_generation_plan(
             fragments.append(fragment)
 
     if target_mode in MEMORIELA_MODES:
-        character_id = intent.get("character")
-        if character_id != "YURA":
-            raise ValueError(
-                f"MEMORIELA character route is not registered yet: {character_id or 'unknown'}"
-            )
         workflow["mode"] = "img2img"
         derived["prompt"]["positive"] = _append_prompt(
             positive,
