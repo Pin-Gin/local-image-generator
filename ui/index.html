@@ -18,9 +18,7 @@
     </aside>
 
     <aside class="side-panel" id="settings-panel">
-      <div class="side-panel-header">
-        <h2>詳細設定</h2>
-      </div>
+      <div class="side-panel-header"><h2>詳細設定</h2></div>
       <div class="side-panel-body">
         <label for="profile">Profile</label>
         <select id="profile"></select>
@@ -35,12 +33,8 @@
     </aside>
 
     <aside class="side-panel hidden" id="json-panel">
-      <div class="side-panel-header">
-        <h2>Generation Request JSON</h2>
-      </div>
-      <div class="side-panel-body json-body">
-        <pre id="json-preview">未作成</pre>
-      </div>
+      <div class="side-panel-header"><h2>Generation Request JSON</h2></div>
+      <div class="side-panel-body json-body"><pre id="json-preview">未作成</pre></div>
     </aside>
 
     <section class="workspace">
@@ -51,25 +45,22 @@
         </div>
       </header>
 
-      <div class="workspace-grid">
-        <form id="chat-form" class="composer-panel">
-          <label for="prompt" class="section-label">生成内容</label>
-          <textarea id="prompt" rows="14" placeholder="文章例：ゆらを白背景で正面立ちにして、青い傘を持たせる&#10;&#10;JSONや英語プロンプトもそのまま貼り付けできます。"></textarea>
-          <button id="generate-button" class="primary-action" type="submit">画像を生成</button>
+      <section class="result-panel" aria-label="生成画像">
+        <div class="result-header">
+          <span class="section-label">生成画像</span>
           <div id="generation-status" class="status-line">未生成</div>
-          <pre id="generation-meta" class="generation-meta"></pre>
-        </form>
+        </div>
+        <div class="image-stage" id="image-stage">
+          <div id="image-placeholder" class="image-placeholder">生成された画像をここに表示します</div>
+          <img id="generated-image" class="generated-image" alt="Generated result" hidden>
+        </div>
+        <pre id="generation-meta" class="generation-meta"></pre>
+      </section>
 
-        <section class="result-panel" aria-label="生成画像">
-          <div class="result-header">
-            <span class="section-label">生成画像</span>
-          </div>
-          <div class="image-stage" id="image-stage">
-            <div id="image-placeholder" class="image-placeholder">生成された画像をここに表示します</div>
-            <img id="generated-image" class="generated-image" alt="Generated result" hidden>
-          </div>
-        </section>
-      </div>
+      <form id="chat-form" class="composer-panel">
+        <textarea id="prompt" rows="4" placeholder="生成内容を入力してください。Enterで生成 / Shift+Enterで改行"></textarea>
+        <button id="generate-button" class="primary-action" type="submit">画像を生成</button>
+      </form>
     </section>
   </main>
   <script src="app.js"></script>
