@@ -25,7 +25,7 @@
     "network_dim": 32,
     "network_alpha": 16,
     "learning_rate": "1e-4",
-    "max_train_epochs": 10,
+    "max_train_epochs": 5,
     "train_batch_size": 1,
     "mixed_precision": "bf16",
     "seed": 42
