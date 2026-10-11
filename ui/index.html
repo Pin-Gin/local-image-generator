@@ -6,6 +6,7 @@
   <title>local-RAG</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="interaction.css">
+  <link rel="stylesheet" href="generation_ai.css">
 </head>
 <body>
   <main class="app-shell generation-mode" id="app-shell">
@@ -79,6 +80,26 @@
           <pre id="generation-meta" class="generation-meta"></pre>
         </section>
 
+        <details id="generation-ai-panel" class="generation-ai-panel" open>
+          <summary>
+            <span>生成AIアシスト</span>
+            <span id="generate-ai-status" class="status-pill">確認中...</span>
+          </summary>
+          <div class="generation-ai-toolbar">
+            <label class="auto-analysis-toggle">
+              <input id="generate-ai-auto" type="checkbox">
+              <span>生成後に自動解析</span>
+            </label>
+            <button id="send-generated-to-learn" class="text-action-button" type="button" disabled>この画像を学習へ送る</button>
+          </div>
+          <div id="generate-ai-chat-log" class="generation-ai-chat-log"></div>
+          <form id="generate-ai-form" class="generation-ai-composer">
+            <textarea id="generate-ai-prompt" rows="2" placeholder="生成結果についてローカルAIに確認できます。例: 手とポーズの問題点を確認して"></textarea>
+            <button id="generate-ai-send" class="primary-action compact" type="submit">送信</button>
+          </form>
+          <p class="generation-ai-note">生成画像と元の生成指示をローカルAIへ渡します。dataset登録やLoRA再学習は、この段階では自動実行しません。</p>
+        </details>
+
         <form id="chat-form" class="composer-panel">
           <textarea id="prompt" rows="4" placeholder="生成内容を入力してください。Enterで生成 / Shift+Enterで改行"></textarea>
           <button id="generate-button" class="primary-action" type="submit">画像を生成</button>
@@ -146,6 +167,7 @@
     </section>
   </main>
   <script src="app.js"></script>
+  <script src="generation_ai.js"></script>
   <script src="clipboard.js"></script>
 </body>
 </html>
