@@ -55,7 +55,7 @@ def _flatten_json_prompt(value: Any, prefix: str = "") -> list[str]:
     parts: list[str] = []
     if isinstance(value, dict):
         for key, child in value.items():
-            if key in {"negative", "profile_id", "seed", "seed_mode"}:
+            if key in {"negative", "profile_id", "seed", "seed_mode", "target_mode"}:
                 continue
             label = f"{prefix} {key}".strip()
             parts.extend(_flatten_json_prompt(child, label))
@@ -69,21 +69,24 @@ def _flatten_json_prompt(value: Any, prefix: str = "") -> list[str]:
     return parts
 
 
-def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]:
     try:
         parsed_json = json.loads(text)
     except json.JSONDecodeError:
         parsed_json = None
 
     if not isinstance(parsed_json, dict):
+        intent = parse_intent(text, INTENT_ROOT)
+        target_mode = "yura_img2img" if intent.get("character") == "YURA" else "generic_text2img"
         return (
-            parse_intent(text, INTENT_ROOT),
+            intent,
             {
                 "mode": "text",
                 "positive": text,
                 "negative": None,
                 "json": None,
             },
+            target_mode,
         )
 
     prompt_value = parsed_json.get("prompt")
@@ -111,15 +114,29 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any]]:
     intent_source = parsed_json.get("text")
     if not isinstance(intent_source, str) or not intent_source.strip():
         intent_source = positive
+    intent = parse_intent(intent_source, INTENT_ROOT)
+
+    # Pasted JSON from the internet is treated as standalone generation input.
+    # It must never inherit the YURA master simply because a word inside the
+    # JSON happens to match a local character alias. YURA img2img can be
+    # requested explicitly with target_mode="yura_img2img".
+    requested_mode = parsed_json.get("target_mode")
+    if requested_mode is None:
+        target_mode = "generic_text2img"
+    elif requested_mode in {"generic_text2img", "yura_img2img"}:
+        target_mode = requested_mode
+    else:
+        raise ValueError("JSON target_mode must be generic_text2img or yura_img2img")
 
     return (
-        parse_intent(intent_source, INTENT_ROOT),
+        intent,
         {
             "mode": "json",
             "positive": positive.strip(),
             "negative": negative.strip() if isinstance(negative, str) and negative.strip() else None,
             "json": parsed_json,
         },
+        target_mode,
     )
 
 
@@ -141,27 +158,18 @@ def build_generation_request(
         raise ValueError("source must be chat_ui, cli, or api")
 
     resolved_seed_mode, resolved_seed = _resolve_seed(seed_mode, seed)
+    intent, prompt_input, target_mode = _build_prompt_input(text)
 
-    # Use the caller-supplied dictionary root for text mode while keeping JSON
-    # handling deterministic and local.
-    try:
-        parsed_json = json.loads(text)
-    except json.JSONDecodeError:
-        parsed_json = None
-
-    if isinstance(parsed_json, dict):
-        intent, prompt_input = _build_prompt_input(text)
-        if dictionary_root is not None:
-            intent_source = prompt_input["positive"]
-            intent = parse_intent(intent_source, dictionary_root)
-    else:
-        intent = parse_intent(text, dictionary_root or INTENT_ROOT)
-        prompt_input = {
-            "mode": "text",
-            "positive": text,
-            "negative": None,
-            "json": None,
-        }
+    if dictionary_root is not None:
+        if prompt_input["mode"] == "text":
+            intent = parse_intent(text, dictionary_root)
+            target_mode = "yura_img2img" if intent.get("character") == "YURA" else "generic_text2img"
+        else:
+            intent = parse_intent(prompt_input["positive"], dictionary_root)
+            # JSON remains generic unless target_mode was explicitly supplied.
+            parsed_json = prompt_input.get("json")
+            explicit_mode = parsed_json.get("target_mode") if isinstance(parsed_json, dict) else None
+            target_mode = explicit_mode if explicit_mode in {"generic_text2img", "yura_img2img"} else "generic_text2img"
 
     return {
         "schema_version": 1,
@@ -172,6 +180,7 @@ def build_generation_request(
         "profile_id": profile,
         "intent": intent,
         "prompt_input": prompt_input,
+        "target_mode": target_mode,
         "options": {
             "reuse_policy": "PREFER_EXISTING",
             "seed_mode": resolved_seed_mode,
