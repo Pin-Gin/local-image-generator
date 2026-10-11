@@ -55,10 +55,19 @@ class Handler(SimpleHTTPRequestHandler):
         if profile_id not in known_profiles:
             raise ValueError("unknown_profile_id")
 
+        seed_mode = payload.get("seed_mode", "PROFILE")
+        seed = payload.get("seed")
+        if not isinstance(seed_mode, str):
+            raise ValueError("seed_mode must be a string")
+        if seed is not None and (not isinstance(seed, int) or isinstance(seed, bool)):
+            raise ValueError("seed must be an integer or null")
+
         return build_generation_request(
             user_text,
             profile_id,
             dictionary_root=INTENT_ROOT,
+            seed_mode=seed_mode,
+            seed=seed,
         )
 
     def _serve_generated_file(self) -> bool:
@@ -126,6 +135,7 @@ class Handler(SimpleHTTPRequestHandler):
             self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
             return
 
+        request_options = request_payload.get("options", {})
         self._send_json(
             HTTPStatus.OK,
             {
@@ -133,6 +143,8 @@ class Handler(SimpleHTTPRequestHandler):
                 "generation": {
                     "generation_id": result.generation_id,
                     "prompt_id": result.prompt_id,
+                    "seed_mode": request_options.get("seed_mode"),
+                    "seed": request_options.get("seed"),
                     "output_url": f"/generated/{relative_output}",
                     "output_sha256": result.output_sha256,
                     "manifest_path": str(result.manifest_path),
