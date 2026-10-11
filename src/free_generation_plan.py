@@ -44,6 +44,102 @@ def _validate_lora_config(value: Any, field_name: str) -> dict[str, Any]:
     }
 
 
+def _validate_pose_control(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {
+            "enabled": False,
+            "backend": None,
+            "source": None,
+            "preprocessor": None,
+            "controlnet": None,
+        }
+
+    pose = _require_object(value, "pose_control")
+    enabled = pose.get("enabled")
+    if not isinstance(enabled, bool):
+        raise ValueError("pose_control.enabled must be boolean")
+    if not enabled:
+        return {
+            "enabled": False,
+            "backend": None,
+            "source": None,
+            "preprocessor": None,
+            "controlnet": None,
+        }
+
+    backend = _require_string(pose.get("backend"), "pose_control.backend")
+    if backend != "dwpose":
+        raise ValueError(f"unsupported pose_control.backend: {backend}")
+
+    source = _require_object(pose.get("source"), "pose_control.source")
+    local_path = _require_string(source.get("local_path"), "pose_control.source.local_path")
+    input_name = _require_string(source.get("input_name"), "pose_control.source.input_name")
+    sha256 = _require_string(source.get("sha256"), "pose_control.source.sha256")
+    if len(sha256) != 64 or any(ch not in "0123456789abcdefABCDEF" for ch in sha256):
+        raise ValueError("pose_control.source.sha256 must be a 64-character hex digest")
+
+    preprocessor = _require_object(pose.get("preprocessor"), "pose_control.preprocessor")
+    for key in ("detect_hand", "detect_body", "detect_face", "scale_stick_for_xinsr_cn"):
+        if not isinstance(preprocessor.get(key), bool):
+            raise ValueError(f"pose_control.preprocessor.{key} must be boolean")
+    resolution = preprocessor.get("resolution")
+    if not isinstance(resolution, int) or isinstance(resolution, bool) or resolution <= 0:
+        raise ValueError("pose_control.preprocessor.resolution must be a positive integer")
+    bbox_detector = _require_string(
+        preprocessor.get("bbox_detector"),
+        "pose_control.preprocessor.bbox_detector",
+    )
+    pose_estimator = _require_string(
+        preprocessor.get("pose_estimator"),
+        "pose_control.preprocessor.pose_estimator",
+    )
+
+    controlnet = _require_object(pose.get("controlnet"), "pose_control.controlnet")
+    model = _require_string(controlnet.get("model"), "pose_control.controlnet.model")
+    strength = _require_number(controlnet.get("strength"), "pose_control.controlnet.strength")
+    start_percent = _require_number(
+        controlnet.get("start_percent"),
+        "pose_control.controlnet.start_percent",
+    )
+    end_percent = _require_number(
+        controlnet.get("end_percent"),
+        "pose_control.controlnet.end_percent",
+    )
+    if strength <= 0 or strength > 2.0:
+        raise ValueError("pose_control.controlnet.strength must be > 0 and <= 2.0")
+    if start_percent < 0 or start_percent > 1:
+        raise ValueError("pose_control.controlnet.start_percent must be between 0 and 1")
+    if end_percent < 0 or end_percent > 1:
+        raise ValueError("pose_control.controlnet.end_percent must be between 0 and 1")
+    if start_percent >= end_percent:
+        raise ValueError("pose_control.controlnet.start_percent must be less than end_percent")
+
+    return {
+        "enabled": True,
+        "backend": backend,
+        "source": {
+            "local_path": local_path,
+            "input_name": input_name,
+            "sha256": sha256.lower(),
+        },
+        "preprocessor": {
+            "detect_hand": preprocessor["detect_hand"],
+            "detect_body": preprocessor["detect_body"],
+            "detect_face": preprocessor["detect_face"],
+            "resolution": resolution,
+            "bbox_detector": bbox_detector,
+            "pose_estimator": pose_estimator,
+            "scale_stick_for_xinsr_cn": preprocessor["scale_stick_for_xinsr_cn"],
+        },
+        "controlnet": {
+            "model": model,
+            "strength": strength,
+            "start_percent": start_percent,
+            "end_percent": end_percent,
+        },
+    }
+
+
 def build_free_generation_engine_plan(
     *,
     content_positive: str,
@@ -53,6 +149,7 @@ def build_free_generation_engine_plan(
     lineart_profile: dict[str, Any] | None = None,
     lineart_enabled: bool = False,
     lineart_strength: float | None = None,
+    pose_control: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the deterministic FREE engine contract.
 
@@ -129,6 +226,8 @@ def build_free_generation_engine_plan(
     elif lineart_enabled:
         raise ValueError("lineart_profile is required when lineart is enabled")
 
+    resolved_pose_control = _validate_pose_control(pose_control)
+
     return {
         "schema_version": FREE_ENGINE_SCHEMA_VERSION,
         "engine_id": FREE_ENGINE_ID,
@@ -161,11 +260,7 @@ def build_free_generation_engine_plan(
             "rendering": copy.deepcopy(rendering_lora),
             "lineart": copy.deepcopy(lineart_lora),
         },
-        "pose_control": {
-            "enabled": False,
-            "backend": None,
-            "source": None,
-        },
+        "pose_control": resolved_pose_control,
         "sampler": {
             "steps": steps,
             "cfg": cfg,
