@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from comfyui_client import fetch_system_stats, run_workflow_and_download
+from compiler import compile_generation
 
 
 REQUIRED_PATH_KEYS = (
@@ -97,6 +98,40 @@ def print_comfyui_summary(payload: dict) -> None:
             print(f"device.{index}.vram_free={device['vram_free']}")
 
 
+def run_g3_compile(root: Path, resolved_paths: dict[str, Path], profile_arg: str) -> int:
+    profile_path = Path(profile_arg)
+    if not profile_path.is_absolute():
+        profile_path = (root / profile_path).resolve()
+
+    try:
+        compiled = compile_generation(
+            root=root,
+            profile_path=profile_path,
+            cache_root=resolved_paths["cache"],
+        )
+    except (OSError, json.JSONDecodeError, ValueError, RuntimeError) as exc:
+        print(f"[G3:FAIL] {exc}", file=sys.stderr)
+        return 4
+
+    print("[G3:OK]")
+    print(f"profile={compiled.profile_path}")
+    print(f"profile_sha256={compiled.profile_sha256}")
+    print(f"authority.repository={compiled.authority.repository}")
+    print(f"authority.branch={compiled.authority.branch}")
+    print(f"authority.commit_sha={compiled.authority.commit_sha}")
+    print(f"authority.expected_master_sha256={compiled.authority.expected_master_sha256}")
+    for source_path, authority_file in compiled.authority.files.items():
+        print(f"authority.file={source_path}")
+        print(f"authority.file.git_blob_sha={authority_file.git_blob_sha}")
+        print(f"authority.file.sha256={authority_file.sha256}")
+        print(f"authority.file.local_path={authority_file.local_path}")
+    print(f"workflow_template={compiled.workflow_template_path}")
+    print(f"workflow_template_sha256={compiled.workflow_template_sha256}")
+    print(f"compiled_workflow={compiled.compiled_workflow_path}")
+    print(f"compiled_workflow_sha256={compiled.compiled_workflow_sha256}")
+    return 0
+
+
 def main() -> int:
     root = repository_root()
 
@@ -116,6 +151,16 @@ def main() -> int:
         action="store_true",
         help="Run the standard G2 smoke-test workflow, poll history, and download the generated image.",
     )
+    parser.add_argument(
+        "--compile-g3",
+        action="store_true",
+        help="Resolve the explicit MEMORIELA authority bundle and compile the G3 generation workflow.",
+    )
+    parser.add_argument(
+        "--profile",
+        default="profiles/yura_working_master_g3.json",
+        help="Generation profile used by --compile-g3.",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -131,6 +176,9 @@ def main() -> int:
         return 1
 
     print_bootstrap_summary(root, config_path, config, resolved_paths)
+
+    if args.compile_g3:
+        return run_g3_compile(root, resolved_paths, args.profile)
 
     if not args.check_comfyui and not args.run_g2_smoke:
         return 0
