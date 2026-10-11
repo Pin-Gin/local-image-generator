@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "document_type": "local-rag/json-part",
+  "part_id": "pose.hair-touch",
+  "version": 1,
+  "part_type": "pose",
+  "name": "Hair touch pose",
+  "status": "staging",
+  "aliases": [
+    "髪に手を添える"
+  ],
+  "tags": [
+    "pose",
+    "hand"
+  ],
+  "payload": {
+    "generation": {
+      "positive": "one hand gently touching the hair, relaxed elbow",
+      "negative": "merged fingers, broken wrist"
+    }
+  },
+  "provenance": {
+    "source_type": "example",
+    "source_ref": "learning/local-ai/examples/json-part.example.json"
+  }
+}
