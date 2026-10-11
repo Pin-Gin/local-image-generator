@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "rendering_id": "matte-dimensional-anime-v1",
+  "rendering_version": 1,
+  "name": "Matte Dimensional Anime",
+  "description": "2Dアニメを基礎としつつ、3Dアニメに近い立体感・奥行き・面のボリュームを持たせる。表面はマットで、強い光沢や実写的な肌質、PBR的な質感は避ける。",
+  "medium": "2D anime foundation with subtle 3D-anime-like dimensionality",
+  "line": {
+    "weight": "medium-fine",
+    "softness": "slightly soft",
+    "detail": "restrained"
+  },
+  "shading": {
+    "style": "anime shading with soft dimensional gradients",
+    "shadow_softness": "medium-soft",
+    "highlight_style": "restrained matte highlights"
+  },
+  "color": {
+    "saturation": "slightly restrained",
+    "contrast": "medium",
+    "temperature": "neutral"
+  },
+  "lighting": {
+    "style": "soft dimensional lighting",
+    "softness": "soft",
+    "ambient_light": "present",
+    "rim_light": "subtle only when scene-appropriate"
+  },
+  "materials": {
+    "surface": "matte",
+    "skin": "smooth matte anime skin, no photoreal skin texture",
+    "hair": "dimensional anime hair masses with controlled highlights",
+    "fabric": "matte fabric with readable folds, not PBR"
+  },
+  "depth": {
+    "style": "clear spatial depth",
+    "volume_strength": "medium to moderately strong",
+    "target": "slight 3D-anime-like volume without becoming CGI"
+  },
+  "background": {
+    "rendering": "same visual world as foreground",
+    "depth": "clear foreground-midground-background separation"
+  },
+  "quality": {
+    "detail_level": "medium-high",
+    "edge_cleanliness": "clean",
+    "noise": "low",
+    "sharpness": "balanced"
+  },
+  "prompt": {
+    "positive": "Matte Dimensional Anime, 2D anime foundation, subtle 3D-anime-like dimensionality, clear spatial depth, dimensional volume, soft matte surfaces, restrained highlights, soft dimensional lighting, clean anime rendering",
+    "negative": "photorealistic, live-action, realistic human skin texture, glossy CGI, plastic-like CGI, PBR materials, excessive specular highlights, waxy skin"
+  },
+  "generation": {
+    "checkpoint": "sd_xl_base_1.0.safetensors",
+    "steps": 20,
+    "cfg": 6.5,
+    "sampler_name": "euler",
+    "scheduler": "normal"
+  }
+}
