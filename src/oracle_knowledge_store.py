@@ -224,6 +224,49 @@ class OracleKnowledgeStore:
             "status": part["status"],
         }
 
+    def delete_staging_test_json_part(self, ref: str) -> dict[str, Any]:
+        """Delete one exact test-only staging JSON part.
+
+        This is intentionally narrow: production/accepted parts cannot be deleted through
+        this method, and only part_ids under the test.* namespace are eligible.
+        """
+        part_id, version = parse_part_ref(ref)
+        if not part_id.startswith("test."):
+            raise ValueError("cleanup only permits part_ids in the test.* namespace")
+
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT STATUS, FILE_PATH
+                    FROM LR_JSON_PART
+                    WHERE PART_ID = :part_id AND PART_VERSION = :version
+                    """,
+                    part_id=part_id,
+                    version=version,
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return {"ref": ref, "deleted": False, "reason": "not_found", "file_path": None}
+                status = str(row[0])
+                file_path = row[1]
+                if status != "staging":
+                    raise RuntimeError(
+                        f"cleanup refuses non-staging JSON part: {ref} status={status}"
+                    )
+                cursor.execute(
+                    """
+                    DELETE FROM LR_JSON_PART
+                    WHERE PART_ID = :part_id AND PART_VERSION = :version AND STATUS = 'staging'
+                    """,
+                    part_id=part_id,
+                    version=version,
+                )
+                if cursor.rowcount != 1:
+                    raise RuntimeError(f"cleanup did not delete exactly one Oracle row: {ref}")
+            connection.commit()
+        return {"ref": ref, "deleted": True, "reason": "deleted", "file_path": file_path}
+
     def save_knowledge(
         self,
         *,
