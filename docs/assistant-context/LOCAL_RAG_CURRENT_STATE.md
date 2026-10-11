@@ -1,23 +1,27 @@
 # local-RAG — Current State / Continuation Handoff
 
-Last checkpoint: **2026-10-11**
+Last checkpoint: **2026-10-11 19:10 JST**
 
-Read `START_HERE.md` first, then this file before changing architecture or implementation.
+Read `START_HERE.md` first, then this file completely before changing architecture or implementation.
 
-This document distinguishes:
+This document is the primary handoff for a new chat/session. It records not only what exists, but what the user actually verified locally and the development method that must be preserved.
 
-- **VERIFIED** — user supplied successful local runtime evidence;
-- **IMPLEMENTED / UNVERIFIED** — code exists in Git but the user has not yet locally confirmed the latest path;
+Status vocabulary:
+
+- **VERIFIED** — the user supplied successful local runtime evidence;
+- **IMPLEMENTED / UNVERIFIED** — code exists in Git, but the current path has not been locally confirmed;
 - **NOT IMPLEMENTED** — no completed runtime path yet;
-- **OPEN SPEC** — design choice still not fixed.
+- **OPEN SPEC** — design choice is not fixed yet.
 
-Do not promote UNVERIFIED items without user-side execution evidence.
+Never promote an UNVERIFIED item merely because code exists.
 
 ---
 
-## 1. Product direction
+## 1. Product direction and source-of-truth boundaries
 
-`local-RAG` is the Windows desktop application. `MEMORIELA` remains the external canon / approved visual-authority repository and must not become the generic app/build name.
+`local-RAG` is the Windows desktop application and repository/build identity.
+
+`MEMORIELA` is an external canon / approved visual-authority repository. It must not become the generic application name or generic storage root.
 
 Generation domains remain separated:
 
@@ -36,13 +40,13 @@ SHARED RENDERING
   applied to FREE and MEMORIELA
 ```
 
-Current architectural objective for generation is now:
+Current generation objective:
 
 ```text
 User input
   -> deterministic FREE / MEMORIELA routing
   -> local AI checks registered learned assets
-  -> if a relevant learned asset exists, select and apply it
+  -> if a relevant registered asset exists, select exact asset ID(s)
   -> generation plan
   -> compiler
   -> ComfyUI
@@ -50,11 +54,34 @@ User input
   -> optional local-AI visual QA / learning discussion
 ```
 
-The local AI must not silently rewrite the user's request or invent assets. It may only select exact registered asset IDs.
+The local AI must not silently rewrite the user's request, invent assets, or claim persistence/training that did not occur.
 
 ---
 
-## 2. Verified local environment
+## 2. Development method that must be preserved
+
+New chats/sessions must continue with the same working method:
+
+1. Read `START_HERE.md` and this checkpoint before editing.
+2. Inspect current Git `main` before assuming file state.
+3. Prefer the repository implementation over chat memory when they differ.
+4. Keep changes incremental and narrowly scoped.
+5. After each meaningful runtime change, give the user one concrete local verification command/path.
+6. Treat only the user's actual local output as runtime PASS evidence.
+7. When a failure occurs, identify the failing layer first; do not restart/reinstall unrelated components by reflex.
+8. Preserve controlled tool boundaries: local-AI Git access remains read-only; no arbitrary shell or implicit DB writes.
+9. Persistent writes require an explicit application/user action. AI text alone does not register knowledge.
+10. Prefer automated end-to-end workflows over manual ComfyUI node construction.
+11. Keep project-created tooling under `C:\Dev\local-image-generator` unless an already-existing external runtime is explicitly used.
+12. Do not expose or repeat local passwords/secrets in documentation or chat output.
+13. After changing imported Python code while `ui_server.py` is already running, restart that server before judging the new behavior; the existing process retains the old module code.
+14. Preserve the distinction between analysis, staging, acceptance, dataset registration, training, publishing, registry activation, and generation-time use.
+
+The user's role in verification is deliberate: Git/code can be changed remotely, but Windows/GPU/runtime behavior is confirmed from the user's machine.
+
+---
+
+## 3. Verified local base environment
 
 ### ComfyUI — VERIFIED
 
@@ -81,7 +108,7 @@ C:\Users\shift\Downloads\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portabl
 
 ### Rendering-LoRA training runtime — VERIFIED
 
-Project-owned tools remain below:
+Project-owned tooling:
 
 ```text
 C:\Dev\local-image-generator\tools\python312
@@ -101,37 +128,25 @@ NVIDIA GeForce RTX 5080
 
 ### Project-local Ollama / Qwen — VERIFIED
 
-Standalone Ollama was installed below the repository rather than machine-wide:
-
 ```text
-C:\Dev\local-image-generator\tools\ollama\ollama.exe
-C:\Dev\local-image-generator\tools\ollama\models\
+runtime: C:\Dev\local-image-generator\tools\ollama\ollama.exe
+models : C:\Dev\local-image-generator\tools\ollama\models\
+API    : http://127.0.0.1:11435
 ```
 
-Dedicated API:
-
-```text
-http://127.0.0.1:11435
-```
-
-Verified model:
+Verified LEARN model:
 
 ```text
 qwen3-vl:8b-instruct
 ```
 
-User-verified LEARN text inference:
+Text inference and direct Vision inference are VERIFIED. Vision output is analysis evidence, not ground truth; it has previously overclaimed spatial/finger details.
 
-```text
-[LOCAL-AI:CHAT:OK]
-model=qwen3-vl:8b-instruct
-```
-
-User-verified direct image/Vision inference also succeeded. The model correctly described broad pose/outfit/background/camera structure, though it overclaimed some details (for example stance width / finger certainty). Therefore local Vision output is **analysis evidence, not automatic ground truth**.
+DEV is configured for `qwen2.5-coder:14b`, but current model installation/runtime has not been verified in this checkpoint.
 
 ---
 
-## 3. Shared rendering — VERIFIED core path
+## 4. Shared rendering — VERIFIED core path
 
 Source:
 
@@ -139,7 +154,7 @@ Source:
 shared/rendering/matte_dimensional_anime.json
 ```
 
-Initial dataset:
+Training dataset/run:
 
 ```text
 20 images
@@ -148,16 +163,17 @@ folder: learning/rendering/dataset/20_mdanime
 2000 steps
 ```
 
-Verified training completion:
+Verified completion:
 
 ```text
-steps: 100% ... 2000/2000 ... avr_loss=0.142
+2000/2000
+avr_loss=0.142
 [LEARNING:TRAIN:OK]
 ```
 
-The trained Matte Dimensional Anime LoRA was published and used in at least one actual FREE generation after fixing Windows ComfyUI `LoraLoader` selector-name normalization.
+The trained Matte Dimensional Anime LoRA was used in an actual FREE generation after Windows ComfyUI `LoraLoader` selector-name normalization was fixed.
 
-Manual visual evaluation of that generated sample:
+Manual evaluation of that sample:
 
 ```text
 rendering / dimensionality : PASS
@@ -166,15 +182,15 @@ depth                       : PASS
 hand/finger anatomy         : FAIL
 ```
 
-The hand failure remains categorized as pose/anatomy quality, not evidence that shared rendering must be retrained.
+The hand failure is a pose/anatomy concern, not a reason by itself to retrain the rendering LoRA.
 
-The trained `.safetensors` file remains a local runtime artifact and is not stored in Git.
+The `.safetensors` model remains a local runtime artifact and is not committed to Git.
 
 ---
 
-## 4. Existing desktop modes
+## 5. Desktop modes and local AI UI
 
-Requested mode switch UI is implemented as a ChatGPT-like dropdown rather than permanent tabs:
+Top-level selector:
 
 ```text
 画像生成
@@ -184,20 +200,21 @@ Requested mode switch UI is implemented as a ChatGPT-like dropdown rather than p
 
 ### 画像生成
 
-Existing FREE / MEMORIELA generation UI plus local generation AI assistance.
+Existing FREE / MEMORIELA generation UI plus generation-side local AI assistance.
 
 ### 学習
 
-Local Qwen Vision chat exists. Implemented UI capabilities include:
+Implemented foundation includes:
 
-- file image upload;
-- image preview;
-- drag-and-drop image intake;
-- Windows screenshot clipboard image intake (`Ctrl+V` path);
+- image upload and preview;
+- drag/drop intake;
+- Windows screenshot clipboard intake (`Ctrl+V`);
 - copy button on local-AI replies;
-- image discussion with `qwen3-vl:8b-instruct`.
+- image discussion using `qwen3-vl:8b-instruct`;
+- JSON response download;
+- explicit JSON Part registration action.
 
-The original UI image request exceeded Ollama's default 4096-token context. LEARN is now configured with:
+LEARN context configuration:
 
 ```text
 num_ctx: 16384
@@ -205,29 +222,229 @@ num_predict: 1024
 max_history_messages: 6
 ```
 
-The direct CLI Vision path is VERIFIED. The latest pywebview UI paths for context fix / drag-drop / clipboard / copy are **IMPLEMENTED / UNVERIFIED** until the user tests them after rebuilding.
+Direct CLI Vision is VERIFIED. Some latest pywebview UI interaction paths remain IMPLEMENTED / UNVERIFIED until explicitly retested.
 
 ### 開発
 
-The DEV role is configured for future local code work with:
-
-```text
-qwen2.5-coder:14b
-```
-
-But the model is not yet confirmed downloaded/run in the current checkpoint, and filesystem/Git/shell/write tools are **NOT IMPLEMENTED**. Current DEV mode remains planning/chat only.
+DEV remains planning/chat oriented. Filesystem writes, Git writes, arbitrary shell, test execution, and build execution are NOT enabled for the local AI.
 
 ---
 
-## 5. Pre-generation learned-asset selection — IMPLEMENTED / UNVERIFIED
+## 6. Reusable JSON Part contract — IMPLEMENTED
 
-The user clarified the required behavior as:
+Canonical ref:
 
-> input -> if AI has a relevant learned asset, use it for generation
+```text
+part:<part_id>@<version>
+```
 
-The generation architecture was therefore changed from post-generation-only AI analysis to a pre-generation learned-asset selection path.
+Example:
 
-Current code flow:
+```text
+part:pose.hair-touch@1
+```
+
+Contract/runtime files include:
+
+```text
+learning/local-ai/JSON_PARTS.md
+learning/local-ai/schemas/json_part.schema.json
+src/json_parts.py
+```
+
+Generation JSON can reference exact reusable parts rather than flattening everything into one prompt.
+
+Accepted parts belong in:
+
+```text
+learning/local-ai/store/json-parts/
+```
+
+Staging/nonaccepted parts belong in:
+
+```text
+learning/local-ai/store/staging/
+```
+
+Important: staging parts are not normal generation-executable file-store parts. They can still exist in Oracle for explicit inspection/testing.
+
+---
+
+## 7. Oracle / local-tools foundation — VERIFIED through local-AI tool call
+
+### Infrastructure — VERIFIED
+
+Docker Desktop / WSL2 / Docker Engine are operational.
+
+Oracle Free local container:
+
+```text
+container: local-rag-oracle
+listener : 127.0.0.1:1521
+service  : FREEPDB1
+schema   : LOCALRAG_KB1
+tablespace: LOCALRAG_DATA
+```
+
+The Oracle schema is a fresh schema and deliberately does not reuse the previous AI-development schema.
+
+Schema v1 tables:
+
+```text
+LR_SCHEMA_META
+LR_KNOWLEDGE_ITEM
+LR_JSON_PART
+LR_SOURCE_REF
+LR_TOOL_AUDIT
+```
+
+User-verified schema bootstrap completed successfully with:
+
+```text
+[ORACLE:TABLESPACE:CREATED] LOCALRAG_DATA
+[ORACLE:SCHEMA:OK] LOCALRAG_KB1 schema version 1 created from scratch.
+[ORACLE:SCHEMA:OK] LOCALRAG_KB1
+```
+
+Python/oracledb health was also VERIFIED:
+
+```text
+configured=True
+online=True
+dsn=127.0.0.1:1521/FREEPDB1
+schema=LOCALRAG_KB1
+schema_version=1
+```
+
+### JSON Part write/read round-trip — VERIFIED
+
+A deliberately nonproduction staging test Part was used:
+
+```text
+part:test.oracle-roundtrip@1
+status: staging
+```
+
+Verified path:
+
+```text
+POST /api/knowledge/json-part
+  -> JSON validation
+  -> staging file write
+  -> Oracle LR_JSON_PART upsert
+  -> oracle_indexed=True
+  -> direct Oracle readback
+  -> Python dict reconstruction
+```
+
+Observed local file:
+
+```text
+learning\local-ai\store\staging\test.oracle-roundtrip.v1.json
+```
+
+The endpoint returned `oracle_indexed=True` with no Oracle error.
+
+Oracle readback returned the expected document including:
+
+```text
+part_id: test.oracle-roundtrip
+part_type: test
+status: staging
+payload.generation.positive: oracle roundtrip test
+```
+
+### LocalAIToolbox -> Oracle — VERIFIED
+
+Direct local toolbox execution returned:
+
+```text
+source: oracle
+ref: part:test.oracle-roundtrip@1
+status: staging
+```
+
+### Local AI -> tool call -> Oracle -> local AI answer — VERIFIED
+
+The LEARN model successfully invoked `json_part_get` through `/api/local-ai/tool-chat`, consumed the Oracle result, and answered:
+
+```text
+ref: part:test.oracle-roundtrip@1
+status: staging
+part_id: test.oracle-roundtrip
+part_type: test
+payload.generation.positive: oracle roundtrip test
+```
+
+This proves the complete path:
+
+```text
+user/API request
+  -> local-RAG backend
+  -> qwen3-vl:8b-instruct
+  -> json_part_get tool call
+  -> LocalAIToolbox
+  -> Oracle LOCALRAG_KB1 / LR_JSON_PART
+  -> tool result
+  -> qwen3-vl:8b-instruct final answer
+```
+
+### Important fixes made during verification
+
+1. Oracle JSON readback can arrive from `python-oracledb` as a native Python `dict`, not only a JSON string. `src/oracle_knowledge_store.py` was fixed to avoid calling `json.loads()` on an already-decoded dict.
+   - fix commit: `fdb8cb8abaafd1931ef8d7ae20b95748f5de657d`
+2. `json_part_get` previously swallowed Oracle exceptions and silently fell back to the accepted file-store path, which made Oracle failures look like "part not found". That masking behavior was removed.
+   - fix commit: `4a6880701734902b6193bdd89f56f9788ee12ae7`
+3. After Python source changes, the running `ui_server.py` had to be restarted before tool-chat reflected the fix.
+
+### Digest note
+
+The file SHA-256 and Oracle `CONTENT_SHA256` currently differ by design because they hash different serialized representations:
+
+- file response SHA: pretty JSON file bytes (including final newline);
+- Oracle SHA: canonical compact/sorted JSON representation.
+
+Do not treat this difference alone as corruption.
+
+---
+
+## 8. Git local tool boundary
+
+Configured repositories:
+
+```text
+local-image-generator
+memoriela
+```
+
+Configured Git actions remain READ ONLY:
+
+```text
+git_status
+git_log
+git_diff
+git_list_files
+git_read_file
+git_search
+```
+
+`GET /api/local-tools/status` is VERIFIED and reports both repositories plus `read_only: true`.
+
+The Git tool implementation/configuration exists. Do not broaden it to checkout/reset/commit/push/arbitrary shell without an explicit later design/approval layer.
+
+This checkpoint specifically verified the local-AI **Oracle** tool-call round-trip. Do not infer from that alone that every Git tool action has also been individually exercised through Qwen in this checkpoint.
+
+---
+
+## 9. Pre-generation learned-asset selection — IMPLEMENTED / UNVERIFIED
+
+Required behavior:
+
+```text
+input -> if AI has a relevant registered learned asset, use it for generation
+```
+
+Current flow:
 
 ```text
 user input
@@ -235,8 +452,8 @@ user input
   -> LocalAIClient role=generate
   -> learning/registry/registry.json
   -> Qwen selects exact registered asset IDs
-  -> validate selected IDs against registry/domain/state
-  -> build_generation_plan
+  -> validate IDs against registry/domain/state
+  -> build generation plan
   -> apply learned prompt fragments and/or learned LoRAs
   -> compiler
   -> ComfyUI
@@ -254,144 +471,60 @@ src/local_ai_client.py
 src/learning_generation_test.py
 ```
 
-The selector uses Ollama JSON mode. Unknown / hallucinated asset IDs are rejected; they are not silently converted into prompts.
+Unknown/hallucinated asset IDs are rejected.
 
-Generation request traceability now includes:
+Current production registry has shared rendering as `selection_mode: always`, but no real production `selection_mode: ai` hand/pose/outfit/character/background assets. Therefore `selected_asset_ids: []` is currently an expected valid result.
 
-```text
-learning.registry_version
-learning.selector = local-ai
-learning.selector_role = generate
-learning.selector_model
-learning.selected_asset_ids
-learning.reason
-```
-
-Generation result metadata includes:
-
-```text
-learned_asset_ids
-```
-
-Manifest data records the learned assets that were actually resolved/applied.
+The user has not yet supplied the local result of `src/learning_generation_test.py` in this checkpoint. Keep this area UNVERIFIED until they do.
 
 ---
 
-## 6. Learning registry state
+## 10. Multiple LoRA composition — IMPLEMENTED / UNVERIFIED
 
-Mutable registry source:
-
-```text
-learning/registry/registry.json
-```
-
-The desktop package also bundles a fallback copy, but `src/learning_registry.py` prefers the repository copy when local-RAG is run from the repository/build tree so future published assets can update a mutable registry.
-
-Supported conditional runtime types at this checkpoint:
-
-```text
-prompt
-lora
-```
-
-The registry also records `shared_rendering` as inventory / always-applied state, but that runtime type is not eligible for conditional AI selection.
-
-### Current production contents
-
-The registry currently records the already-trained Matte Dimensional Anime shared rendering asset as:
-
-```text
-selection_mode: always
-runtime.type: shared_rendering
-```
-
-There are currently **no real production `selection_mode: ai` hand / pose / outfit / character / background assets**.
-
-Therefore after this refactor, with today's registry, pre-generation Qwen should run but normally select:
-
-```text
-selected_asset_ids: []
-```
-
-This is expected. Shared rendering continues through the separate shared-rendering path.
-
-A future trained/published pose/hand/etc asset must be added to the registry before the generation AI can select it.
-
----
-
-## 7. Multiple LoRA composition — IMPLEMENTED / UNVERIFIED
-
-`src/compiler.py` now supports a chained sequence:
+Compiler supports:
 
 ```text
 SDXL Base
-  -> Shared Rendering LoRA (if active)
+  -> Shared Rendering LoRA
   -> selected learned LoRA #1
   -> selected learned LoRA #2
   -> ...
   -> conditioning / sampler
 ```
 
-Validation rejects:
+Validation rejects duplicate learned IDs/files and duplication of the shared rendering LoRA.
 
-- duplicate learned asset IDs;
-- duplicate learned LoRA files;
-- learned LoRA duplication of the shared Rendering LoRA.
-
-Strengths remain asset-specific registry values; the compiler does not assume `1.0`.
-
-This supports future combinations such as rendering + hand/anatomy + pose + character/outfit LoRAs, but actual compatibility/strength policy must still be evaluated per trained asset.
+Actual compatibility/strength policy remains asset-specific and requires real trained assets and local generation tests.
 
 ---
 
-## 8. Generation-side post-generation AI assistant
+## 11. Persistent learning producer lifecycle — NOT IMPLEMENTED end-to-end
 
-The prior post-generation `生成AIアシスト` remains separate from the new selector.
+This remains the largest functional gap.
 
-It can:
-
-- receive the original generation instruction;
-- inspect the current generated image;
-- discuss pose / hands / expression / outfit / background / camera / rendering;
-- optionally auto-analyze after generation;
-- send the current generated image into LEARN mode.
-
-This path is **post-generation QA / discussion**.
-
-The new registry selector is **pre-generation asset selection**.
-
-Do not conflate the two.
-
----
-
-## 9. Persistent learning lifecycle — NOT IMPLEMENTED end-to-end
-
-This is the largest remaining gap relative to the user's final desired workflow.
-
-Current LEARN mode can visually analyze an image, but it does not yet complete:
+Desired lifecycle:
 
 ```text
-explicit acceptance
+LEARN analysis
+  -> explicit user acceptance
   -> dataset registration
-  -> category-specific training dataset
-  -> train LoRA / adapter
+  -> category-specific dataset
+  -> train LoRA / adapter / other runtime asset
   -> validation
-  -> publish to ComfyUI
+  -> publish to ComfyUI/runtime
   -> register asset in learning/registry/registry.json
-  -> available to pre-generation AI selector
+  -> generation AI can select it later
 ```
 
-Therefore do **not** tell the user that simply chatting about or uploading an image has already taught a persistent generation asset.
+Current LEARN chat/vision and structured JSON/Oracle storage do **not** mean model weights have learned the content.
 
-The pre-generation consumption path now exists; the producer/publish path still needs implementation.
+The consumption side is partly implemented; the persistent producer/publish path is not complete.
 
 ---
 
-## 10. Hand / pose direction
+## 12. Hand / pose responsibility split
 
-The original motivation for general learned assets is the ambiguous-hand failure seen in the LoRA-on image.
-
-Rendering responsibility remains separate:
+Keep concerns separate:
 
 ```text
 Rendering LoRA -> visual style / dimensional rendering
@@ -400,125 +533,120 @@ Character -> identity
 Outfit -> clothing identity
 ```
 
-Potential future pose/anatomy runtimes include:
+Potential future pose/anatomy runtimes:
 
 - dedicated LoRA;
-- ControlNet / DWPose / OpenPose reference;
+- ControlNet / DWPose / OpenPose;
 - LoRA + pose control.
 
-Only `prompt` and `lora` conditional runtime assets are implemented in the new registry/compiler at this checkpoint. ControlNet runtime injection remains **NOT IMPLEMENTED**.
+Only prompt/LoRA conditional runtime consumption is implemented at this checkpoint. ControlNet/DWPose runtime injection is NOT IMPLEMENTED.
 
 ---
 
-## 11. Known routing / technical debt
+## 13. Known technical debt / caution
 
-### `要` false positives
+### `要` false-positive routing
 
-Current `chat_contract.py` includes a more constrained named-character detector, but the expected regression case must still be locally run:
+`chat_contract.py` contains a stricter detector, but the regression case still requires local evidence:
 
 ```text
 必要な背景を生成して
 ```
 
-Expected: FREE.
+Expected route: FREE.
 
-Do not claim fixed until test evidence is supplied.
+Do not claim this fixed until tested locally.
 
-### DB migration
+### Oracle application credential rotation
 
-Older DB naming/history preservation is not fully verified.
+During an earlier failed schema-reset log, the local Oracle application password was printed by SQL*Plus output. Do not repeat the password. The credential should be rotated after this checkpoint through a narrow, reproducible action that updates both Oracle and `.env.local-ai` safely.
 
-### Profile selector vs automatic routing
+### Staging test residue
 
-Visible profile selection can still be conceptually confusing because effective routing can override the requested profile.
+The verification Part `part:test.oracle-roundtrip@1` intentionally remains staging test data at this checkpoint. It should be removed with a narrow cleanup mechanism rather than encouraging arbitrary SQL.
 
-### Build locking
+### UI/build process lifetime
 
-Stop a running `local-RAG.exe` before rebuilding; Windows may lock build output/DLLs.
+A running Python/UI server does not hot-reload imported modules. Restart `ui_server.py` after source changes before judging behavior.
 
-### Shared rendering local JSON
+Stop a running `local-RAG.exe` before rebuilding because Windows can lock output/DLL files.
 
-There was an earlier PowerShell 5.1 UTF-8/mojibake incident while manually editing the shared rendering JSON. Git is the recovery source. Avoid non-UTF8 PowerShell rewrites.
+### Shared rendering JSON encoding
 
----
-
-## 12. Local verification still required for the latest learned-generation refactor
-
-After pulling current main, first run:
-
-```powershell
-cd C:\Dev\local-image-generator
-python .\src\learning_generation_test.py
-```
-
-Expected:
-
-```text
-[LEARNED-GENERATION:TEST:OK]
-```
-
-Then rebuild:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build_desktop.ps1
-.\dist\local-RAG\local-RAG.exe
-```
-
-With the current production registry, perform a normal generation and confirm:
-
-```text
-local AI is reachable
-request.learning exists
-learned_asset_ids = []
-image still generates successfully
-shared Rendering LoRA remains active according to local shared-rendering config
-```
-
-The empty list is correct until a real conditional learned asset is published.
-
-Do not create a fake production hand/pose asset merely to make the list non-empty. Use a real trained/published asset or a deliberately isolated test fixture.
+There was an earlier PowerShell 5.1 UTF-8/mojibake incident. Git is the recovery source; avoid unsafe non-UTF8 rewrites.
 
 ---
 
-## 13. Current state matrix
+## 14. Current state matrix
 
-| Area | State | Note |
+| Area | State | Evidence / note |
 |---|---|---|
 | ComfyUI / RTX 5080 | VERIFIED | localhost:8188 |
 | SDXL Base | VERIFIED | existing local checkpoint |
-| Shared Rendering dataset | VERIFIED | 20/20 |
-| Shared Rendering training | VERIFIED | 2000 steps completed |
-| LoRA-backed FREE generation | VERIFIED at least once | visual result produced |
-| Rendering visual direction | MANUAL PASS on sample | hand still failed |
+| Shared Rendering dataset | VERIFIED | 20 images |
+| Shared Rendering training | VERIFIED | 2000 steps |
+| LoRA-backed FREE generation | VERIFIED at least once | image produced |
 | Project-local Ollama | VERIFIED | 127.0.0.1:11435 |
-| qwen3-vl:8b-instruct text chat | VERIFIED | local response returned |
-| qwen3-vl:8b-instruct direct Vision | VERIFIED | image analysis returned |
-| LEARN UI file upload/chat | IMPLEMENTED | latest UI needs reverify after context fix |
-| Drag/drop / screenshot paste / copy | IMPLEMENTED / UNVERIFIED | desktop re-test required |
-| Generation post-QA AI | IMPLEMENTED / UNVERIFIED | UI re-test required |
-| Pre-generation learned-asset AI selector | IMPLEMENTED / UNVERIFIED | new refactor |
-| Learning registry | IMPLEMENTED | only shared rendering inventory currently |
-| Conditional prompt asset consumption | IMPLEMENTED / UNVERIFIED | no real production asset yet |
-| Conditional LoRA asset consumption | IMPLEMENTED / UNVERIFIED | multi-LoRA chain added |
-| Persistent LEARN -> train -> publish -> registry | NOT IMPLEMENTED | next major workflow |
-| ControlNet/DWPose generation runtime | NOT IMPLEMENTED | future pose path |
-| DEV code-write/Git/shell tools | NOT IMPLEMENTED | chat/planning only |
+| qwen3-vl:8b-instruct text | VERIFIED | local response |
+| qwen3-vl:8b-instruct Vision | VERIFIED | local image analysis |
+| Docker / WSL2 / Oracle Free | VERIFIED | local runtime online |
+| LOCALRAG_KB1 schema v1 | VERIFIED | fresh schema bootstrap |
+| Python -> Oracle health | VERIFIED | online/schema_version=1 |
+| JSON Part API -> file + Oracle | VERIFIED | `oracle_indexed=True` |
+| Oracle JSON Part readback | VERIFIED | native dict issue fixed |
+| LocalAIToolbox -> Oracle | VERIFIED | `source=oracle` |
+| Qwen tool call -> Oracle -> answer | VERIFIED | exact staging fields returned |
+| Local tools status endpoint | VERIFIED | Git repos + Oracle online |
+| Git read-only tool layer | IMPLEMENTED / PARTIALLY VERIFIED | configured/status visible; not every Qwen Git action exercised here |
+| JSON download / Part登録 UI | IMPLEMENTED / UNVERIFIED UI | API write path itself verified |
+| LEARN drag/drop / paste / copy | IMPLEMENTED / UNVERIFIED | desktop UI retest required |
+| Generation post-QA AI | IMPLEMENTED / UNVERIFIED | UI retest required |
+| Pre-generation learned-asset selector | IMPLEMENTED / UNVERIFIED | local test output still required |
+| Conditional prompt/LoRA consumption | IMPLEMENTED / UNVERIFIED | no real AI-selectable production asset yet |
+| Persistent LEARN -> train -> publish -> registry | NOT IMPLEMENTED | major next workflow |
+| ControlNet/DWPose runtime | NOT IMPLEMENTED | future pose path |
+| DEV model/runtime | CONFIGURED / UNVERIFIED | qwen2.5-coder:14b |
+| DEV writes/Git writes/shell/test/build tools | NOT IMPLEMENTED | planning/chat only |
 
 ---
 
-## 14. Continuation rule
+## 15. Immediate continuation order after this documentation checkpoint
 
-On a new chat:
+Do not jump directly to new production features. Continue in this order unless the user explicitly changes priority:
+
+### Phase A — verification-environment cleanup / hardening
+
+1. Add a narrow cleanup path for `part:test.oracle-roundtrip@1` and remove the staging file + exact Oracle row without exposing unrestricted SQL.
+2. Rotate the previously exposed Oracle application password safely; never print the new secret.
+3. Convert the verified Oracle JSON-Part/tool-chat sequence into a one-command repeatable integration smoke test with automatic isolated test data cleanup.
+
+### Phase B — close currently implemented-but-unverified paths
+
+4. Run/verify `src/learning_generation_test.py`.
+5. Rebuild/retest the relevant desktop UI paths when needed: JSON download, explicit Part registration button, drag/drop, clipboard paste, copy, generation post-QA.
+6. Run the `要` false-positive FREE-routing regression test.
+
+### Phase C — next major feature
+
+7. Implement the first real **persistent LEARN -> dataset -> train -> validate -> publish -> registry** producer workflow, keeping style/rendering, pose/anatomy, character, and outfit responsibilities modular.
+
+Do not create fake production learned assets merely to make AI selection non-empty. Test fixtures must remain isolated and clearly marked.
+
+---
+
+## 16. New-chat continuation checklist
+
+A new chat should do this before making changes:
 
 1. Read `START_HERE.md`.
 2. Read this file completely.
-3. Inspect current main branch before editing.
-4. Preserve the distinction between analysis, dataset registration, training, publishing, registry activation, and generation-time application.
-5. Never claim that an uploaded image is persistently learned until the producer lifecycle actually completed.
-6. Never let Qwen invent an unregistered generation asset.
-7. Preserve FREE / MEMORIELA semantic isolation and shared-rendering independence.
-8. Prefer automated end-to-end local workflows over manual ComfyUI node construction.
-9. Keep project-created tooling under `C:\Dev\local-image-generator`.
-10. Treat local execution as unverified until the user supplies actual output.
+3. Read `docs/local-ai/LOCAL_TOOLS_AND_ORACLE.md` for the current tool/database contract.
+4. Inspect current `main` and recent commits before editing.
+5. Do not redo already VERIFIED Oracle connectivity/round-trip work unless a regression requires it.
+6. Preserve FREE / MEMORIELA semantic isolation and shared-rendering independence.
+7. Preserve explicit-write safety: AI may inspect/read through allowed tools; persistent writes happen only through narrow application actions.
+8. Treat staging as nonproduction and accepted content as the generation-eligible tier.
+9. Keep local Vision judgments advisory; do not auto-promote them to dataset truth.
+10. Ask the user to run only the next necessary Windows command/test and judge PASS/FAIL from the returned output.
 
-The immediate engineering continuation after this checkpoint is to locally verify the new pre-generation selector, then implement the **persistent LEARN -> dataset -> train -> publish -> registry** producer path for the first real reusable pose/hand asset.
+**Current exact stopping point:** the end-to-end local-AI Oracle JSON-Part tool path is VERIFIED. The next work item is Phase A cleanup/hardening above, not rebuilding Oracle connectivity from scratch.
