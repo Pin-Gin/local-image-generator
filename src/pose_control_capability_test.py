@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE_URL = "http://127.0.0.1:8188"
 CONTROLNET_ROOT = ROOT / "models" / "controlnet"
 CONTROLNET_EXTENSIONS = {".safetensors", ".ckpt", ".pth", ".pt"}
+EXPECTED_CONTROLNET = "SDXL/controlnet-openpose-sdxl-1.0/diffusion_pytorch_model.safetensors"
+EXPECTED_DWPOSE_NODES = {"DWPose_Preprocessor", "DWPreprocessor"}
 
 
 def _fetch_object_info() -> dict[str, Any]:
@@ -34,6 +36,10 @@ def _fetch_object_info() -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise RuntimeError("ComfyUI /object_info root must be an object")
     return payload
+
+
+def _normalize_model_name(value: str) -> str:
+    return value.replace("\\", "/").strip()
 
 
 def _list_controlnet_models() -> list[str]:
@@ -67,6 +73,28 @@ def _candidate_preprocessors(object_info: dict[str, Any]) -> list[str]:
     return sorted(set(fuzzy), key=str.casefold)
 
 
+def _controlnet_loader_choices(object_info: dict[str, Any]) -> list[str]:
+    node = object_info.get("ControlNetLoader")
+    if not isinstance(node, dict):
+        return []
+    inputs = node.get("input")
+    if not isinstance(inputs, dict):
+        return []
+    required = inputs.get("required")
+    if not isinstance(required, dict):
+        return []
+    control_name = required.get("control_net_name")
+    if not isinstance(control_name, list) or not control_name:
+        return []
+    choices = control_name[0]
+    if not isinstance(choices, list):
+        return []
+    return sorted(
+        {_normalize_model_name(value) for value in choices if isinstance(value, str)},
+        key=str.casefold,
+    )
+
+
 def _print_node_status(object_info: dict[str, Any], node_name: str, label: str) -> bool:
     if node_name in object_info:
         print(f"[POSE:{label}:OK] {node_name}")
@@ -87,13 +115,33 @@ def main() -> int:
         print(f"[POSE:PREPROCESSOR:FOUND] {', '.join(preprocessors)}")
     else:
         print("[POSE:PREPROCESSOR:NONE]")
+    dwpose_ok = any(name in EXPECTED_DWPOSE_NODES for name in preprocessors)
+    if dwpose_ok:
+        matched = next(name for name in preprocessors if name in EXPECTED_DWPOSE_NODES)
+        print(f"[POSE:DWPOSE:OK] {matched}")
+    else:
+        print("[POSE:DWPOSE:MISSING]")
 
     models = _list_controlnet_models()
     print(f"[POSE:MODEL-CATALOG] count={len(models)}")
     for name in models:
         print(f"[POSE:MODEL] {name}")
 
-    if loader_ok and apply_ok and image_ok and preprocessors and models:
+    expected_key = EXPECTED_CONTROLNET.casefold()
+    file_model_ok = any(_normalize_model_name(name).casefold() == expected_key for name in models)
+    if file_model_ok:
+        print(f"[POSE:MODEL-FILE:OK] {EXPECTED_CONTROLNET}")
+    else:
+        print(f"[POSE:MODEL-FILE:MISSING] {EXPECTED_CONTROLNET}")
+
+    loader_choices = _controlnet_loader_choices(object_info)
+    api_model_ok = any(name.casefold() == expected_key for name in loader_choices)
+    if api_model_ok:
+        print(f"[POSE:MODEL-COMFYUI:OK] {EXPECTED_CONTROLNET}")
+    else:
+        print(f"[POSE:MODEL-COMFYUI:MISSING] {EXPECTED_CONTROLNET}")
+
+    if loader_ok and apply_ok and image_ok and dwpose_ok and file_model_ok and api_model_ok:
         print("[POSE:CAPABILITY:READY]")
     else:
         print("[POSE:CAPABILITY:INCOMPLETE]")
