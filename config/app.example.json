@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "MEMORIELA Local Image Generator",
+    "name": "local-RAG",
     "environment": "development"
   },
   "comfyui": {
@@ -9,9 +9,12 @@
     "generation_timeout_seconds": 180
   },
   "paths": {
-    "database": "database/memoriela_local.db",
+    "database": "database/local_rag.db",
     "profiles": "profiles",
     "workflows": "workflows",
+    "shared": "shared",
+    "domains": "domains",
+    "learning": "learning",
     "cache": "cache",
     "outputs": "outputs",
     "logs": "logs"
