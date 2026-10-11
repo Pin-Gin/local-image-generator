@@ -155,43 +155,25 @@ def json_part_filename(part_id: str, version: int) -> str:
     return f"{part_id}.v{version}.json"
 
 
-def _manual_leaf_prompt(key: str, value: Any) -> str:
-    if value is None or isinstance(value, bool):
-        return ""
-    text = str(value).strip()
-    if not text:
-        return ""
-
-    normalized_key = key.strip().casefold()
-    if normalized_key == "hair_color":
-        return f"{text} hair"
-    if normalized_key == "eye_color":
-        return f"{text} eyes"
-    if normalized_key == "hair_accessory":
-        return f"{text} hair accessory"
-    if normalized_key == "gender":
-        return text
-    if normalized_key in {"left_hand", "right_hand"}:
-        side = normalized_key.split("_", 1)[0]
-        return f"{side} hand {text}"
-    if normalized_key in {"left_side", "right_side"}:
-        side = normalized_key.split("_", 1)[0]
-        return f"{side} side {text}"
-    if normalized_key in {
-        "type",
-        "expression",
-        "body_posture",
-        "visible_fingers",
-        "rendering_style",
-        "camera_composition",
-    }:
-        return text
-
-    label = normalized_key.replace("_", " ")
-    return f"{label} {text}".strip()
+def _literal_manual_scalar(key: str, value: Any) -> str:
+    """Render a manual JSON leaf without rewriting either its key or its value."""
+    if value is None:
+        return f"{key}: null" if key else "null"
+    if isinstance(value, bool):
+        literal = "true" if value else "false"
+        return f"{key}: {literal}" if key else literal
+    if isinstance(value, (int, float)):
+        literal = str(value)
+        return f"{key}: {literal}" if key else literal
+    if isinstance(value, str):
+        if value == "":
+            return ""
+        return f"{key}: {value}" if key else value
+    return ""
 
 
-def _flatten_manual_generation(value: Any, *, key: str = "") -> list[str]:
+def _flatten_manual_generation_literal(value: Any, *, key: str = "") -> list[str]:
+    """Flatten manual structured JSON while preserving original keys, values, order, and duplicates."""
     fragments: list[str] = []
     if isinstance(value, dict):
         for child_key, child_value in value.items():
@@ -199,12 +181,12 @@ def _flatten_manual_generation(value: Any, *, key: str = "") -> list[str]:
                 continue
             if child_key.casefold() in MANUAL_METADATA_KEYS:
                 continue
-            fragments.extend(_flatten_manual_generation(child_value, key=child_key))
+            fragments.extend(_flatten_manual_generation_literal(child_value, key=child_key))
     elif isinstance(value, list):
         for child in value:
-            fragments.extend(_flatten_manual_generation(child, key=key))
+            fragments.extend(_flatten_manual_generation_literal(child, key=key))
     else:
-        fragment = _manual_leaf_prompt(key, value)
+        fragment = _literal_manual_scalar(key, value)
         if fragment:
             fragments.append(fragment)
     return fragments
@@ -234,7 +216,7 @@ def _manual_json_part_fields(
         raise ValueError("manual JSON part negative must be a string when present")
 
     if isinstance(positive_value, str) and positive_value.strip():
-        positive = positive_value.strip()
+        positive = positive_value
     else:
         content = {
             key: value
@@ -242,19 +224,18 @@ def _manual_json_part_fields(
             if isinstance(key, str)
             and key.casefold() not in MANUAL_METADATA_KEYS | {"negative", "negative_prompt"}
         }
-        fragments = _flatten_manual_generation(content)
-        deduplicated = list(dict.fromkeys(fragment for fragment in fragments if fragment))
-        positive = ", ".join(deduplicated)
+        fragments = _flatten_manual_generation_literal(content)
+        positive = ", ".join(fragment for fragment in fragments if fragment)
 
     if not positive:
         raise ValueError(f"manual JSON part contains no usable generation content: {path}")
 
-    negative = negative_value.strip() if isinstance(negative_value, str) else ""
+    negative = negative_value if isinstance(negative_value, str) else ""
     if not negative:
         manual_negative = payload.get("negative_prompt")
         if manual_negative is not None and not isinstance(manual_negative, str):
             raise ValueError("manual JSON part negative_prompt must be a string when present")
-        negative = manual_negative.strip() if isinstance(manual_negative, str) else ""
+        negative = manual_negative if isinstance(manual_negative, str) else ""
 
     top_level_content_keys = [
         key
@@ -264,7 +245,7 @@ def _manual_json_part_fields(
     ]
     part_type = top_level_content_keys[0] if top_level_content_keys else "manual"
     description = payload.get("description")
-    name = description.strip() if isinstance(description, str) and description.strip() else part_id
+    name = description if isinstance(description, str) and description else part_id
     return part_type, name, positive, negative
 
 
@@ -321,7 +302,8 @@ def load_json_part(resource_root: Path, ref: str, *, accepted_only: bool = True)
         negative = generation.get("negative", "")
     else:
         # Manual structured JSON files live directly in the accepted json-parts store.
-        # Their identity/version comes from the canonical filename/ref; no DB write or file rewrite occurs.
+        # The file is never rewritten. Generation prompt conversion preserves the manual
+        # document's original keys, values, order, and duplicate leaves verbatim.
         part_type, name, positive, negative = _manual_json_part_fields(
             payload,
             part_id=part_id,
