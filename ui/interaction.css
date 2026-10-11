@@ -1,0 +1,47 @@
+.chat-body {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.chat-role-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 3px;
+}
+
+.chat-message.user .chat-role-row {
+  justify-content: flex-end;
+}
+
+.copy-message-button {
+  border: 0;
+  background: transparent;
+  color: #8993a0;
+  padding: 2px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.copy-message-button:hover {
+  color: #f2f4f8;
+  background: #252b33;
+}
+
+.upload-drop {
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.upload-drop.drag-active {
+  border-color: #9aa5b2;
+  background: #20262e;
+  box-shadow: inset 0 0 0 1px #6f7b89;
+}
+
+.upload-drop.drag-active #learn-upload-copy {
+  color: #ffffff;
+}
