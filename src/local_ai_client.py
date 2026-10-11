@@ -4,7 +4,7 @@ import base64
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib import error, request
 
 
@@ -18,6 +18,7 @@ class LocalAIChatResult:
     load_duration: int | None
     prompt_eval_count: int | None
     eval_count: int | None
+    tool_calls: tuple[dict[str, Any], ...] = ()
 
 
 class LocalAIClient:
@@ -164,21 +165,18 @@ class LocalAIClient:
             },
         }
 
-    def chat(
+    def _build_messages(
         self,
         role: str,
         message: str,
         *,
-        history: list[dict[str, Any]] | None = None,
-        images_base64: list[str] | None = None,
-        json_mode: bool = False,
-    ) -> LocalAIChatResult:
+        history: list[dict[str, Any]] | None,
+        images_base64: list[str] | None,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         if role not in self.roles:
             raise ValueError(f"unknown local AI role: {role}")
         if not isinstance(message, str) or not message.strip():
             raise ValueError("local AI message must be a non-empty string")
-        if not isinstance(json_mode, bool):
-            raise ValueError("local AI json_mode must be boolean")
 
         role_cfg = self.roles[role]
         images = images_base64 or []
@@ -195,7 +193,6 @@ class LocalAIClient:
         if history is not None:
             if not isinstance(history, list):
                 raise ValueError("local AI history must be an array")
-
             validated_history: list[dict[str, str]] = []
             for index, item in enumerate(history):
                 if not isinstance(item, dict):
@@ -216,6 +213,53 @@ class LocalAIClient:
         if images:
             user_message["images"] = images
         messages.append(user_message)
+        return role_cfg, messages
+
+    @staticmethod
+    def _result_from_response(role: str, model: str, response: dict[str, Any]) -> LocalAIChatResult:
+        response_message = response.get("message")
+        if not isinstance(response_message, dict):
+            raise RuntimeError("local AI chat response is missing message")
+        content = response_message.get("content")
+        thinking = response_message.get("thinking")
+        raw_tool_calls = response_message.get("tool_calls")
+        if not isinstance(content, str):
+            raise RuntimeError("local AI chat response content must be a string")
+        if thinking is not None and not isinstance(thinking, str):
+            thinking = None
+        if not isinstance(raw_tool_calls, list):
+            raw_tool_calls = []
+        tool_calls = tuple(item for item in raw_tool_calls if isinstance(item, dict))
+
+        return LocalAIChatResult(
+            role=role,
+            model=model,
+            content=content,
+            thinking=thinking,
+            total_duration=response.get("total_duration") if isinstance(response.get("total_duration"), int) else None,
+            load_duration=response.get("load_duration") if isinstance(response.get("load_duration"), int) else None,
+            prompt_eval_count=response.get("prompt_eval_count") if isinstance(response.get("prompt_eval_count"), int) else None,
+            eval_count=response.get("eval_count") if isinstance(response.get("eval_count"), int) else None,
+            tool_calls=tool_calls,
+        )
+
+    def chat(
+        self,
+        role: str,
+        message: str,
+        *,
+        history: list[dict[str, Any]] | None = None,
+        images_base64: list[str] | None = None,
+        json_mode: bool = False,
+    ) -> LocalAIChatResult:
+        if not isinstance(json_mode, bool):
+            raise ValueError("local AI json_mode must be boolean")
+        role_cfg, messages = self._build_messages(
+            role,
+            message,
+            history=history,
+            images_base64=images_base64,
+        )
 
         request_payload: dict[str, Any] = {
             "model": role_cfg["model"],
@@ -232,27 +276,87 @@ class LocalAIClient:
             request_payload["format"] = "json"
 
         response = self._request_json("POST", "/api/chat", request_payload)
+        return self._result_from_response(role, role_cfg["model"], response)
 
-        response_message = response.get("message")
-        if not isinstance(response_message, dict):
-            raise RuntimeError("local AI chat response is missing message")
-        content = response_message.get("content")
-        thinking = response_message.get("thinking")
-        if not isinstance(content, str):
-            raise RuntimeError("local AI chat response content must be a string")
-        if thinking is not None and not isinstance(thinking, str):
-            thinking = None
+    def chat_with_tools(
+        self,
+        role: str,
+        message: str,
+        *,
+        tools: list[dict[str, Any]],
+        execute_tool: Callable[[str, dict[str, Any]], Any],
+        history: list[dict[str, Any]] | None = None,
+        images_base64: list[str] | None = None,
+        max_rounds: int = 6,
+    ) -> LocalAIChatResult:
+        if not isinstance(tools, list) or not tools:
+            raise ValueError("local AI tools must be a non-empty array")
+        if not callable(execute_tool):
+            raise ValueError("local AI execute_tool must be callable")
+        if not isinstance(max_rounds, int) or max_rounds < 1 or max_rounds > 12:
+            raise ValueError("local AI max_rounds must be between 1 and 12")
 
-        return LocalAIChatResult(
-            role=role,
-            model=role_cfg["model"],
-            content=content,
-            thinking=thinking,
-            total_duration=response.get("total_duration") if isinstance(response.get("total_duration"), int) else None,
-            load_duration=response.get("load_duration") if isinstance(response.get("load_duration"), int) else None,
-            prompt_eval_count=response.get("prompt_eval_count") if isinstance(response.get("prompt_eval_count"), int) else None,
-            eval_count=response.get("eval_count") if isinstance(response.get("eval_count"), int) else None,
+        role_cfg, messages = self._build_messages(
+            role,
+            message,
+            history=history,
+            images_base64=images_base64,
         )
+
+        for _round in range(max_rounds):
+            request_payload: dict[str, Any] = {
+                "model": role_cfg["model"],
+                "messages": messages,
+                "tools": tools,
+                "think": role_cfg["think"],
+                "stream": False,
+                "keep_alive": self.keep_alive,
+                "options": {
+                    "num_ctx": role_cfg["num_ctx"],
+                    "num_predict": role_cfg["num_predict"],
+                },
+            }
+            response = self._request_json("POST", "/api/chat", request_payload)
+            result = self._result_from_response(role, role_cfg["model"], response)
+            if not result.tool_calls:
+                return result
+
+            assistant_message: dict[str, Any] = {
+                "role": "assistant",
+                "content": result.content,
+                "tool_calls": list(result.tool_calls),
+            }
+            messages.append(assistant_message)
+
+            for call in result.tool_calls:
+                function = call.get("function")
+                if not isinstance(function, dict):
+                    raise RuntimeError("local AI tool call is missing function")
+                name = function.get("name")
+                arguments = function.get("arguments", {})
+                if not isinstance(name, str) or not name:
+                    raise RuntimeError("local AI tool call function name is invalid")
+                if not isinstance(arguments, dict):
+                    raise RuntimeError(f"local AI tool call arguments must be an object: {name}")
+
+                try:
+                    tool_result = execute_tool(name, arguments)
+                    payload = {"ok": True, "result": tool_result}
+                except Exception as exc:
+                    payload = {
+                        "ok": False,
+                        "error": str(exc) or exc.__class__.__name__,
+                        "error_type": exc.__class__.__name__,
+                    }
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_name": name,
+                        "content": json.dumps(payload, ensure_ascii=False),
+                    }
+                )
+
+        raise RuntimeError("local AI tool loop exceeded max_rounds")
 
 
 def load_local_ai_config(path: Path) -> dict[str, Any]:
