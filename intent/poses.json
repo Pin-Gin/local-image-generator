@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "category": "pose",
+  "entries": [
+    {
+      "id": "FRONT_STANDING",
+      "aliases": ["正面立ち", "正面立ち姿", "正面を向いて立つ", "正面向きで立つ"]
+    }
+  ]
+}
