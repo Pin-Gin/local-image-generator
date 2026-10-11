@@ -10,7 +10,11 @@ Before continuing implementation in a new chat/session, read:
 
 `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md`
 
-It records the latest verified local state, completed implementation, unresolved defects, open specifications, and the intended continuation direction after the first successful learned-rendering LoRA training and LoRA-backed FREE generation.
+and then:
+
+`docs/local-ai/README.md`
+
+The first file records the rendering/generation checkpoint; the second records the newer local-AI runtime, verified chat/vision state, and the current mode-switch UI implementation.
 
 ## Product split
 
@@ -27,7 +31,7 @@ local-RAG
   -> SHARED RENDERING
        Matte Dimensional Anime
        used by both FREE and MEMORIELA
-       prompt rules now, learned rendering LoRA when trained/activated
+       learned rendering LoRA when trained/activated
 ```
 
 Natural-language names currently routed to MEMORIELA:
@@ -39,7 +43,9 @@ Natural-language names currently routed to MEMORIELA:
 
 Only YURA currently has a connected character runtime path. Other MEMORIELA characters must not silently fall back to FREE or YURA.
 
-## Runtime path
+## Runtime paths
+
+Generation:
 
 ```text
 local-RAG.exe
@@ -52,16 +58,36 @@ local-RAG.exe
   -> Generated Image + Manifest
 ```
 
-A separate project-local AI runtime is being added for future LEARN and DEV modes:
+Local AI:
 
 ```text
 local-RAG backend
   -> project-local Ollama API on 127.0.0.1:11435
-       -> LEARN: qwen3-vl:8b
+       -> LEARN: qwen3-vl:8b-instruct
        -> DEV: qwen2.5-coder:14b
 ```
 
-This local-AI path is currently an implemented foundation that still requires user-side runtime verification. It does not replace ComfyUI generation.
+LEARN runtime, text chat, and vision inference are user-verified locally. DEV remains a configured but not yet locally verified role.
+
+## Desktop mode UI
+
+The UI now has a top-level dropdown mode selector modeled after the requested ChatGPT-style switcher:
+
+```text
+画像生成
+学習
+開発
+```
+
+Current implementation state:
+
+- 画像生成: existing generation UI/path;
+- 学習: image upload + preview + local vision/chat foundation;
+- 開発: local chat foundation only;
+- persistent dataset registration/training from UI: not implemented yet;
+- DEV filesystem/Git/shell/test/build execution: not implemented yet.
+
+The new mode-switch/image-upload UI code exists in Git but still requires local desktop build/run verification.
 
 ## Directory map
 
@@ -80,7 +106,7 @@ domains/memoriela/           MEMORIELA-domain rules/assets
   situations/                reusable situation definitions
   backgrounds/               reusable background assets/metadata
 learning/rendering/           shared-rendering dataset/training pipeline
-docs/local-ai/               local AI runtime/setup/API documentation
+docs/local-ai/               local AI runtime/setup/API/UI documentation
 docs/assistant-context/      continuation/handoff state for future sessions
 tools/ollama/                project-local Ollama runtime/models (Git-ignored)
 cache/                       runtime cache
@@ -99,11 +125,11 @@ See `learning/rendering/README.md`.
 
 ## Local AI
 
-The project-local AI runtime is documented in:
+The project-local AI runtime and its verification boundary are documented in:
 
 `docs/local-ai/README.md`
 
-The browser mode-switch UI and image-upload learning workflow are not yet complete. Establish and locally verify the runtime/API before promoting those features to VERIFIED.
+Important: vision transport/inference is verified, but the model is not an authority. The first successful visual analysis contained at least one overconfident spatial detail. User confirmation remains required before future dataset registration/training decisions.
 
 ## Source-of-truth separation
 
@@ -111,12 +137,12 @@ The external MEMORIELA repository remains the authority for MEMORIELA canon and 
 
 ## Governing documents
 
-- `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md` — latest continuation checkpoint and verification state
-- `docs/local-ai/README.md` — project-local AI runtime/setup/API contract
+- `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md` — rendering/generation continuation checkpoint
+- `docs/local-ai/README.md` — newer project-local AI runtime/setup/API/UI state
 - `SPEC.md` — production scope and architecture
 - `GATE.md` — verification and promotion gates
 - `START_HERE.md` — repository entry point
 
 ## Development rule
 
-Code existence is not a runtime PASS. New routing, learning, LoRA activation, local-AI behavior, and generated-image behavior must be locally executed and verified before being treated as production-ready.
+Code existence is not a runtime PASS. New routing, learning, LoRA activation, local-AI behavior, UI behavior, and generated-image behavior must be locally executed and verified before being treated as production-ready.
