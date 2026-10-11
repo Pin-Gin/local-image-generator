@@ -1,123 +1,137 @@
-# MEMORIELA Local Image Generator — Production Specification
+# local-RAG — Production Specification
 
-Status: **INITIAL / ACTIVE FOR FOUNDATION PHASE**
+Status: **ACTIVE / DESKTOP + DOMAIN SPLIT + RENDERING LEARNING IMPLEMENTATION**
 
 ## 1. Product objective
 
-Build a local Windows desktop image-generation application for MEMORIELA, with the final deliverable launched from an `.exe`.
+Build a local Windows desktop image-generation application launched as `local-RAG.exe` and backed by local ComfyUI generation.
 
-The application must use local GPU generation and must not require a cloud image-generation API for normal operation.
+The application has two generation domains:
 
-## 2. Initial production architecture
+- **FREE**: reproduce natural-language / JSON requests without MEMORIELA-specific assets.
+- **MEMORIELA**: controlled named-character production using reusable character, outfit, situation, background, pose, expression, and camera assets.
+
+Both domains use the same shared rendering layer.
+
+## 2. Generation architecture
 
 ```text
 Desktop UI
   -> Local Backend / Controller
   -> Intent / Generation Request
-  -> SQLite + JSON metadata
+  -> Domain Router
+       -> FREE
+       -> MEMORIELA
+  -> Shared Rendering
+       -> Prompt rendering rules
+       -> optional learned rendering LoRA
   -> Generation Compiler
   -> ComfyUI API
   -> Local model/runtime
   -> Generated image
-  -> Manifest / history / QA record
+  -> Manifest / SQLite history
 ```
 
-## 3. Current backend baseline
+## 3. Domain rules
 
-Initial backend target:
+### FREE
 
-- Windows 11
-- NVIDIA RTX 5080 16 GB
-- ComfyUI as generation backend
-- local HTTP API communication with ComfyUI
-- Python for the initial controller/backend layer
-- SQLite for local metadata/history
-- JSON for machine-readable generation profiles and manifests
+FREE accepts natural language or JSON and should reproduce the specified content as directly as possible.
 
-Frontend and final desktop shell are intentionally deferred until the generation core is stable.
+FREE must not inject:
+- MEMORIELA MASTER images
+- MEMORIELA character LoRAs
+- MEMORIELA outfit assets
+- MEMORIELA situation/background assets
+- MEMORIELA-specific corrections
 
-## 4. Source-of-truth separation
+FREE uses its own base profile (`free-sdxl-v1`) and the shared rendering layer only.
 
-### This repository
+### MEMORIELA
 
-Owns executable application logic and local-generation infrastructure.
+Natural-language references to the named cast route to MEMORIELA:
+- YURA / ゆら / 久遠ゆら
+- KANAME / 要 / 水瀬要
+- SHIORI / 栞
+- YAMATO / 大和
+- MIO / 美緒
 
-### MEMORIELA repository
+Only YURA currently has a connected runtime character profile. An unregistered MEMORIELA character must fail explicitly instead of falling back to FREE or another character.
 
-Owns canon, visual authority, approved MASTER assets, and related source documents.
+MEMORIELA production assets are modular. Outfit learning is intended to use outfit-only/mannequin datasets so clothing can be replaced without retraining character identity.
 
-The generator must not silently rewrite MEMORIELA canon.
+## 4. Shared rendering
 
-## 5. Generation authority model
+Shared rendering is stored under `shared/rendering/` and is applied to both FREE and MEMORIELA.
 
-Target production execution is based on an explicit bundle such as:
+Current rendering identity:
+
+`Matte Dimensional Anime`
+
+Target qualities:
+- stylized anime foundation
+- pronounced 3D-anime-like volume and spatial depth
+- matte surface response
+- restrained highlights
+- clear volumetric shading and modeled form planes
+- no photoreal human skin
+- no glossy/PBR CGI appearance
+
+Prompt-only rendering remains the fallback. When a learned rendering LoRA is trained and activated, the generation compiler injects the standard ComfyUI `LoraLoader` into both text2img and img2img workflows.
+
+## 5. Rendering learning
+
+Rendering learning lives under `learning/rendering/` and is independent from MEMORIELA asset learning.
+
+Current implementation target:
+- SDXL LoRA
+- local `sd-scripts` trainer
+- captioned local dataset
+- trigger token `mdanime_style`
+- U-Net-only LoRA training for reduced VRAM use
+- trained `.safetensors` copied to the configured ComfyUI `models/loras` directory
+- explicit activation updates the shared rendering configuration
+
+Training data and model weights are local runtime assets and are not committed to Git.
+
+A training implementation is not considered verified until a real dataset has been supplied and local training/publish/generation have completed successfully.
+
+## 6. Source-of-truth separation
+
+This repository owns the local application, generation routing, shared rendering, training pipeline, and runtime metadata.
+
+The external MEMORIELA repository owns MEMORIELA canon and approved character visual authority. FREE generation must not read MEMORIELA authority.
+
+## 7. Manifest requirements
+
+Generation manifests should record:
+- generation timestamp and ID
+- generation domain
+- request / effective profile
+- source authority where applicable
+- shared rendering ID/version
+- whether rendering LoRA was enabled
+- effective workflow/model/sampler settings
+- seed
+- output path/hash
+- later QA/adoption state
+
+## 8. Runtime data policy
+
+`cache/`, `outputs/`, `logs/`, SQLite databases, learning datasets, training outputs, and model weights are runtime/local data and should not be committed by default.
+
+## 9. Current high-level directory ownership
 
 ```text
-MASTER IMAGE
-+ approved visual/source documents
-+ machine-readable generation profile JSON
-+ workflow definition
-+ model/runtime version information
+src/                         application/controller/compiler code
+ui/                          desktop UI
+config/                      runtime config
+domains/free/                FREE domain
+domains/memoriela/           MEMORIELA domain
+shared/rendering/            shared rendering definition
+learning/rendering/          rendering LoRA training pipeline
+profiles/                    machine-readable runtime profiles
+workflows/                   ComfyUI workflow templates
+intent/                      input intent dictionaries
+cache/ database/ outputs/    runtime state
 ```
-
-Every generation should be reproducible enough to identify which authority inputs and runtime settings were used.
-
-## 6. Manifest requirements
-
-A production generation manifest should be able to record at least:
-
-- generation timestamp
-- generation request/profile identifier
-- source repository and source revision/hash where applicable
-- MASTER image path/identifier and file hash
-- source document paths and hashes
-- generation profile version/hash
-- workflow version/hash
-- model/checkpoint identifier/hash where practical
-- seed
-- sampler/scheduler/steps/CFG/denoise and other effective parameters
-- generated output path(s)
-- generation result/status
-- later QA/adoption status
-
-The exact schema will be fixed when the database/profile layer is implemented.
-
-## 7. Runtime data policy
-
-`cache/`, `outputs/`, and `logs/` are runtime-oriented locations. Large generated artifacts, model weights, and transient cache data should not be committed to Git by default.
-
-Model files are external runtime dependencies and are not intended to be stored in this repository.
-
-## 8. Character identity direction
-
-The production system must support stronger identity stability than the initial SDXL img2img prototype.
-
-Identity stabilization is a dedicated implementation phase. Candidate mechanisms may be evaluated later, but no specific reference adapter, LoRA, or custom-node solution is production authority yet.
-
-## 9. Development sequence
-
-Initial sequence:
-
-1. repository foundation
-2. local core/bootstrap
-3. ComfyUI connectivity
-4. configuration/profile loading
-5. generation compiler
-6. manifest/output handling
-7. SQLite history/index layer
-8. identity-stability implementation and testing
-9. chat-style UI
-10. Windows desktop packaging / `.exe`
-
-## 10. Non-goals for the foundation phase
-
-The foundation phase does not claim:
-
-- final image quality
-- final identity stability
-- final UI design
-- final model selection
-- final packaging technology
-- final LoRA/reference implementation
-
-Those decisions must be promoted through explicit gates after local verification.
