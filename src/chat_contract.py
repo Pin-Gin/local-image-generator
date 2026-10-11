@@ -12,7 +12,7 @@ from intent_parser import parse_intent
 
 ROOT = Path(__file__).resolve().parent.parent
 INTENT_ROOT = ROOT / "intent"
-MAX_SEED = (1 << 63) - 1
+MAX_SEED = (1 << 53) - 1
 SEED_MODES = {"PROFILE", "RANDOM", "FIXED"}
 
 
