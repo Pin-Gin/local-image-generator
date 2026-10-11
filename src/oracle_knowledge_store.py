@@ -164,7 +164,12 @@ class OracleKnowledgeStore:
         if row is None:
             return None
         raw_json = row[0].read() if hasattr(row[0], "read") else row[0]
-        document = json.loads(raw_json)
+        if isinstance(raw_json, dict):
+            document = raw_json
+        elif isinstance(raw_json, (str, bytes, bytearray)):
+            document = json.loads(raw_json)
+        else:
+            raise TypeError(f"unexpected Oracle JSON value type: {type(raw_json).__name__}")
         return {
             "ref": ref,
             "document": document,
