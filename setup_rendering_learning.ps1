@@ -91,9 +91,7 @@ if (-not $SkipDependencyInstall) {
   Write-Host "[SETUP] Installing sd-scripts requirements ..."
   Push-Location $TrainerRoot
   try {
-    # requirements.txt contains "-e .". Running pip from the trainer root is required
-    # so the editable kohya_ss package resolves to tools\sd-scripts rather than this app repository.
-    Invoke-Checked $TrainerVenvPython "-m" "pip" "install" "--upgrade" "-r" "requirements.txt"
+    Invoke-Checked $TrainerVenvPython "-m" "pip" "install" "--upgrade" "-r" (Join-Path $TrainerRoot "requirements.txt")
   }
   finally {
     Pop-Location
@@ -116,11 +114,22 @@ if (-not (Test-Path $LocalConfig)) {
 }
 
 $config = Get-Content $LocalConfig -Raw | ConvertFrom-Json
-$config.trainer.repo = ($TrainerRoot -replace '\\', '/')
-$config.trainer.python_executable = ($TrainerVenvPython -replace '\\', '/')
-$config.trainer.accelerate_config = ($AccelerateConfig -replace '\\', '/')
-$config.model.pretrained_model_name_or_path = ($Checkpoint -replace '\\', '/')
-$config.output.comfyui_lora_directory = ($LoraRoot -replace '\\', '/')
+$trainerRepoValue = ($TrainerRoot -replace '\\', '/')
+$trainerPythonValue = ($TrainerVenvPython -replace '\\', '/')
+$accelerateConfigValue = ($AccelerateConfig -replace '\\', '/')
+$checkpointValue = ($Checkpoint -replace '\\', '/')
+$loraRootValue = ($LoraRoot -replace '\\', '/')
+
+$config.trainer.repo = $trainerRepoValue
+$config.trainer.python_executable = $trainerPythonValue
+if ($null -eq $config.trainer.PSObject.Properties["accelerate_config"]) {
+  $config.trainer | Add-Member -NotePropertyName "accelerate_config" -NotePropertyValue $accelerateConfigValue
+} else {
+  $config.trainer.accelerate_config = $accelerateConfigValue
+}
+$config.model.pretrained_model_name_or_path = $checkpointValue
+$config.output.comfyui_lora_directory = $loraRootValue
+
 $json = $config | ConvertTo-Json -Depth 20
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($LocalConfig, $json + [Environment]::NewLine, $utf8NoBom)
@@ -128,5 +137,6 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 Write-Host "[SETUP:OK] trainer=$TrainerRoot"
 Write-Host "[SETUP:OK] python=$TrainerVenvPython"
 Write-Host "[SETUP:OK] checkpoint=$Checkpoint"
+Write-Host "[SETUP:OK] accelerate=$AccelerateConfig"
 Write-Host "[SETUP:OK] config=$LocalConfig"
 Write-Host "[NEXT] Put rendering training images/captions under learning\rendering\dataset\20_mdanime and run train_rendering.ps1 -Action validate"
