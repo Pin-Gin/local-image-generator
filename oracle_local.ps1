@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("start", "status", "reset-schema", "stop")]
+  [ValidateSet("start", "status", "reset-schema", "rotate-app-password", "stop")]
   [string]$Action = "status"
 )
 
@@ -26,6 +26,18 @@ function Read-LocalEnv([string]$Path) {
   return $values
 }
 
+function Write-LocalEnvValue([string]$Path, [string]$Key, [string]$Value) {
+  $encoding = New-Object System.Text.UTF8Encoding($false)
+  $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+  $pattern = "(?m)^" + [regex]::Escape($Key) + "=.*$"
+  if (-not [regex]::IsMatch($content, $pattern)) {
+    throw "Required environment key was not found: $Key"
+  }
+  $replacement = "$Key=$Value"
+  $updated = [regex]::Replace($content, $pattern, $replacement, 1)
+  [System.IO.File]::WriteAllText($Path, $updated, $encoding)
+}
+
 function Require-Docker {
   $cmd = Get-Command docker -ErrorAction SilentlyContinue
   if (-not $cmd) {
@@ -40,6 +52,32 @@ function Test-OracleReady([string]$Password) {
     return (($LASTEXITCODE -eq 0) -and (($output -join "`n") -match "1"))
   } catch {
     return $false
+  }
+}
+
+function Test-AppReady([string]$Password) {
+  try {
+    $probe = "select 1 from dual;`nexit`n"
+    $output = $probe | docker exec -i $ContainerName sqlplus -s "LOCALRAG_KB1/$Password@//localhost:1521/FREEPDB1" 2>&1
+    return (($LASTEXITCODE -eq 0) -and (($output -join "`n") -match "1"))
+  } catch {
+    return $false
+  }
+}
+
+function Set-OracleAppPassword([string]$SystemPassword, [string]$NewPassword) {
+  $sql = @"
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+SET ECHO OFF
+SET VERIFY OFF
+SET FEEDBACK OFF
+SET HEADING OFF
+ALTER USER LOCALRAG_KB1 IDENTIFIED BY "$NewPassword";
+EXIT
+"@
+  $null = $sql | docker exec -i $ContainerName sqlplus -s "system/$SystemPassword@//localhost:1521/FREEPDB1" 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "Oracle app password change failed"
   }
 }
 
@@ -92,6 +130,34 @@ switch ($Action) {
     $sql | docker exec -i $ContainerName sqlplus -s "system/$systemPassword@//localhost:1521/FREEPDB1"
     if ($LASTEXITCODE -ne 0) { throw "Oracle schema reset failed" }
     Write-Host "[ORACLE:SCHEMA:OK] LOCALRAG_KB1"
+  }
+
+  "rotate-app-password" {
+    if (-not (Test-OracleReady $systemPassword)) {
+      throw "Oracle is not ready. Run .\oracle_local.ps1 -Action start first."
+    }
+
+    $newPassword = (([guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")).Substring(0, 32)).ToUpperInvariant()
+    Write-Host "[ORACLE] Rotating LOCALRAG_KB1 application password..."
+
+    try {
+      Set-OracleAppPassword $systemPassword $newPassword
+      if (-not (Test-AppReady $newPassword)) {
+        throw "New Oracle app password could not authenticate"
+      }
+      Write-LocalEnvValue $EnvFile "LOCALRAG_ORACLE_PASSWORD" $newPassword
+    } catch {
+      try {
+        Set-OracleAppPassword $systemPassword $appPassword
+      } catch {
+        Write-Host "[ORACLE:WARN] Automatic password rollback failed. Manual recovery may be required."
+      }
+      throw
+    }
+
+    Write-Host "[ORACLE:PASSWORD:ROTATED] LOCALRAG_KB1"
+    Write-Host "[ORACLE:PASSWORD:OK] .env.local-ai updated without printing the secret"
+    Write-Host "[NEXT] Restart ui_server.py/local-RAG processes so they reload .env.local-ai."
   }
 
   "stop" {
