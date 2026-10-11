@@ -1,5 +1,14 @@
 {
   "schema_version": 1,
   "category": "hair",
-  "entries": []
+  "entries": [
+    {
+      "id": "MASTER_REFERENCE",
+      "aliases": [
+        "髪型はマスターと同じ",
+        "マスターと同じ髪型",
+        "髪型そのまま"
+      ]
+    }
+  ]
 }
