@@ -28,6 +28,7 @@ const learnImageWrap = document.getElementById('learn-image-wrap');
 const learnImagePreview = document.getElementById('learn-image-preview');
 const learnImageName = document.getElementById('learn-image-name');
 const learnUploadCopy = document.getElementById('learn-upload-copy');
+const learnUploadDrop = document.getElementById('learn-upload-drop');
 const learnForm = document.getElementById('learn-form');
 const learnPrompt = document.getElementById('learn-prompt');
 const learnSend = document.getElementById('learn-send');
@@ -61,6 +62,7 @@ const localHistories = {learn: [], dev: []};
 let currentMode = 'generate';
 let learnImageBase64 = null;
 let learnImageDataUrl = null;
+let learnDragDepth = 0;
 
 async function loadProfiles() {
   const response = await fetch('/api/profiles');
@@ -183,14 +185,55 @@ function setMode(mode) {
   if (mode === 'dev') loadLocalAIStatus('dev');
 }
 
+async function copyText(text, button) {
+  const original = button.textContent;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const fallback = document.createElement('textarea');
+      fallback.value = text;
+      fallback.setAttribute('readonly', '');
+      fallback.style.position = 'fixed';
+      fallback.style.opacity = '0';
+      document.body.appendChild(fallback);
+      fallback.select();
+      if (!document.execCommand('copy')) throw new Error('copy command failed');
+      fallback.remove();
+    }
+    button.textContent = 'コピー済み';
+  } catch (error) {
+    button.textContent = 'コピー失敗';
+  } finally {
+    window.setTimeout(() => {
+      button.textContent = original;
+    }, 1400);
+  }
+}
+
 function appendChatMessage(container, role, text, imageUrl = null) {
   const item = document.createElement('div');
   item.className = `chat-message ${role}`;
 
+  const roleRow = document.createElement('div');
+  roleRow.className = 'chat-role-row';
+
   const roleLabel = document.createElement('div');
   roleLabel.className = 'chat-role';
   roleLabel.textContent = role === 'user' ? 'あなた' : 'ローカルAI';
-  item.appendChild(roleLabel);
+  roleRow.appendChild(roleLabel);
+
+  if (role === 'assistant') {
+    const copyButton = document.createElement('button');
+    copyButton.className = 'copy-message-button';
+    copyButton.type = 'button';
+    copyButton.textContent = 'コピー';
+    copyButton.title = '回答をクリップボードへコピー';
+    copyButton.addEventListener('click', () => copyText(text, copyButton));
+    roleRow.appendChild(copyButton);
+  }
+
+  item.appendChild(roleRow);
 
   if (imageUrl) {
     const image = document.createElement('img');
@@ -216,7 +259,9 @@ function resetLearnImage() {
   learnImageWrap.hidden = true;
   learnImageRemove.hidden = true;
   learnImageName.textContent = '';
-  learnUploadCopy.textContent = '画像を選択';
+  learnUploadCopy.textContent = '画像を選択 またはドロップ';
+  learnUploadDrop.classList.remove('drag-active');
+  learnDragDepth = 0;
 }
 
 function readFileAsDataUrl(file) {
@@ -226,6 +271,36 @@ function readFileAsDataUrl(file) {
     reader.onerror = () => reject(reader.error || new Error('画像を読み込めませんでした。'));
     reader.readAsDataURL(file);
   });
+}
+
+async function loadLearnImageFile(file) {
+  if (!file) return;
+
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    resetLearnImage();
+    appendChatMessage(learnChatLog, 'assistant', 'PNG / JPEG / WebP の画像を選択してください。');
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    resetLearnImage();
+    appendChatMessage(learnChatLog, 'assistant', '画像は20MB以下にしてください。');
+    return;
+  }
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    if (typeof dataUrl !== 'string' || !dataUrl.includes(',')) throw new Error('画像データ形式が不正です。');
+    learnImageDataUrl = dataUrl;
+    learnImageBase64 = dataUrl.split(',', 2)[1];
+    learnImagePreview.src = dataUrl;
+    learnImageWrap.hidden = false;
+    learnImageRemove.hidden = false;
+    learnImageName.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    learnUploadCopy.textContent = '画像を変更 またはドロップ';
+  } catch (error) {
+    resetLearnImage();
+    appendChatMessage(learnChatLog, 'assistant', `画像読込エラー: ${error.message}`);
+  }
 }
 
 async function handleLocalSubmit({role, promptElement, buttonElement, logElement}) {
@@ -299,33 +374,35 @@ devPrompt.addEventListener('keydown', (event) => {
 
 learnImageInput.addEventListener('change', async () => {
   const file = learnImageInput.files?.[0];
-  if (!file) return;
+  if (file) await loadLearnImageFile(file);
+});
 
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    resetLearnImage();
-    appendChatMessage(learnChatLog, 'assistant', 'PNG / JPEG / WebP の画像を選択してください。');
-    return;
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    resetLearnImage();
-    appendChatMessage(learnChatLog, 'assistant', '画像は20MB以下にしてください。');
-    return;
-  }
+learnUploadDrop.addEventListener('dragenter', (event) => {
+  event.preventDefault();
+  learnDragDepth += 1;
+  learnUploadDrop.classList.add('drag-active');
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+});
 
-  try {
-    const dataUrl = await readFileAsDataUrl(file);
-    if (typeof dataUrl !== 'string' || !dataUrl.includes(',')) throw new Error('画像データ形式が不正です。');
-    learnImageDataUrl = dataUrl;
-    learnImageBase64 = dataUrl.split(',', 2)[1];
-    learnImagePreview.src = dataUrl;
-    learnImageWrap.hidden = false;
-    learnImageRemove.hidden = false;
-    learnImageName.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
-    learnUploadCopy.textContent = '画像を変更';
-  } catch (error) {
-    resetLearnImage();
-    appendChatMessage(learnChatLog, 'assistant', `画像読込エラー: ${error.message}`);
-  }
+learnUploadDrop.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  learnUploadDrop.classList.add('drag-active');
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+});
+
+learnUploadDrop.addEventListener('dragleave', (event) => {
+  event.preventDefault();
+  learnDragDepth = Math.max(0, learnDragDepth - 1);
+  if (learnDragDepth === 0) learnUploadDrop.classList.remove('drag-active');
+});
+
+learnUploadDrop.addEventListener('drop', async (event) => {
+  event.preventDefault();
+  learnDragDepth = 0;
+  learnUploadDrop.classList.remove('drag-active');
+  const files = [...(event.dataTransfer?.files || [])];
+  if (!files.length) return;
+  await loadLearnImageFile(files[0]);
 });
 
 learnImageRemove.addEventListener('click', resetLearnImage);
