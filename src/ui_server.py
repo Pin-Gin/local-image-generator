@@ -5,7 +5,7 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 from chat_contract import build_generation_request, list_profile_ids
 from generation_bridge import run_chat_generation
@@ -62,11 +62,12 @@ class Handler(SimpleHTTPRequestHandler):
         )
 
     def _serve_generated_file(self) -> bool:
+        request_path = urlsplit(self.path).path
         prefix = "/generated/"
-        if not self.path.startswith(prefix):
+        if not request_path.startswith(prefix):
             return False
 
-        relative = unquote(self.path[len(prefix):]).replace("\\", "/")
+        relative = unquote(request_path[len(prefix):]).replace("\\", "/")
         target = (OUTPUTS_ROOT / relative).resolve()
         outputs_root = OUTPUTS_ROOT.resolve()
         try:
