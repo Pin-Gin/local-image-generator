@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "lineart_id": "strong-anime-lineart-v1",
+  "lineart_version": 1,
+  "name": "Strong Anime Lineart",
+  "description": "FREE generation line-art conditioning kept separate from content and Matte Dimensional Anime rendering. It strengthens clean anime contours without changing the source JSON Part content.",
+  "prompt": {
+    "positive": "strong clean anime lineart, crisp anime outlines, clear contour lines, defined facial and body outlines, clean inked edges, confident continuous contours, readable silhouette edges, controlled interior line detail",
+    "negative": "weak lineart, faint outlines, blurry edges, soft undefined contours, sketchy lines, broken contours, painterly edges, watercolor edges"
+  },
+  "default_strength": 1.35,
+  "lora": {
+    "enabled": false,
+    "lora_name": "local-rag/lineart/strong_anime_lineart_v1.safetensors",
+    "strength_model": 1.0,
+    "strength_clip": 1.0
+  }
+}
