@@ -1,0 +1,15 @@
+services:
+  oracle:
+    image: container-registry.oracle.com/database/free:latest-lite
+    container_name: local-rag-oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PWD: ${LOCALRAG_ORACLE_SYSTEM_PASSWORD}
+    volumes:
+      - local_rag_oracle_data:/opt/oracle/oradata
+    restart: unless-stopped
+
+volumes:
+  local_rag_oracle_data:
+    name: local-rag-oracle-data
