@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "dataset_id": "matte_dimensional_anime_v1",
+  "target_style": "Matte Dimensional Anime",
+  "trigger_token": "mdanime_style",
+  "image_size": "1024x1024",
+  "generation_policy": {
+    "independent_images": true,
+    "reuse_previous_image_as_reference": false,
+    "reuse_previous_character": false,
+    "reuse_previous_composition": false,
+    "shared_only": "rendering characteristics",
+    "people_must_be_clearly_adult": true,
+    "no_text_or_logo": true
+  },
+  "shared_rendering_prompt": "2D anime foundation, pronounced 3D-anime-like dimensionality, clearly modeled planes and volume, smooth dimensional shading, soft form-describing cinematic light, matte surface response, restrained highlights, clear foreground-subject-midground-background depth, clean medium-fine anime linework, medium to moderately strong contrast, slightly restrained saturation, neutral color balance, medium-high detail, clean edges, balanced sharpness",
+  "shared_negative_prompt": "photorealistic, live-action, realistic human skin texture, glossy CGI, plastic-like CGI, PBR materials, excessive specular highlights, waxy skin, flat anime shading, flat cel shading, flat facial planes, flat composition, watercolor, painterly wash, sketch-like rendering, washed-out depth, weak volumetric shading, text, logo, signature, watermark",
+  "items": [
+    {
+      "id": "0001",
+      "content_prompt": "Clearly adult woman in her late 20s, full body, straight dark auburn shoulder-length hair, cream knit top and charcoal ankle-length trousers, relaxed standing pose in a contemporary apartment living room, near-front camera with slight three-quarter turn, soft side light from a window, sofa and shelving creating visible room depth.",
+      "caption": "mdanime_style, adult woman, late 20s, full body, relaxed standing pose, cream knit top, charcoal trousers, contemporary living room, near-front three-quarter camera, soft side window lighting, fabric and wood, foreground and background depth"
+    },
+    {
+      "id": "0002",
+      "content_prompt": "Clearly adult man in his early 30s, full body, short sandy-blond hair, navy casual jacket over a gray shirt and tan trousers, standing outdoors on a broad pedestrian plaza, three-quarter camera view, bright but soft daytime light, stone paving, trees and low buildings receding into the distance.",
+      "caption": "mdanime_style, adult man, early 30s, full body, standing, navy casual jacket, tan trousers, outdoor pedestrian plaza, three-quarter camera, soft daytime lighting, stone paving, trees, distant buildings"
+    },
+    {
+      "id": "0003",
+      "content_prompt": "Clearly adult woman in her mid 30s, full body, long wavy copper hair tied loosely back, muted blue long coat over simple dark clothing, standing near a riverside promenade at sunset, subtle low-angle camera, warm evening rim light with soft fill, railing, river and distant buildings creating layered depth.",
+      "caption": "mdanime_style, adult woman, mid 30s, full body, long coat, riverside promenade, subtle low-angle camera, evening rim lighting, matte fabric, railing, river, layered distant city depth"
+    },
+    {
+      "id": "0004",
+      "content_prompt": "Clearly adult man in his late 20s, full body, short dark brown curly hair, olive knit sweater and black straight-leg trousers, natural standing posture inside a quiet library lounge, slight high-angle camera, diffuse ceiling and window light, tables, chairs and bookcases receding behind him.",
+      "caption": "mdanime_style, adult man, late 20s, full body, natural standing posture, olive knit sweater, black trousers, library lounge, slight high-angle camera, diffuse indoor lighting, furniture and bookcase depth"
+    },
+    {
+      "id": "0005",
+      "content_prompt": "Completely new subject unrelated to previous images. Clearly adult woman in her 30s, short black bob haircut, medium-brown skin, beige cropped jacket, dark green wide-leg trousers and shoulder bag, walking left to right on a wide urban sidewalk. Full-body strict side profile, camera about eight meters away, subject placed left of center, overcast daylight, matte concrete architecture, street trees, roadway and distant pedestrians with strong layered depth. Do not use a front-facing pose or static standing pose.",
+      "caption": "mdanime_style, adult woman, 30s, full body side profile, walking left to right, short black bob, beige cropped jacket, dark green wide-leg trousers, urban sidewalk, overcast daylight, matte concrete, street trees, layered city depth"
+    },
+    {
+      "id": "0006",
+      "content_prompt": "Completely new subject. Clearly adult man in his early 40s, shaved head with short beard, rust overshirt and dark denim, full body, standing beside a workbench in a spacious craft studio, rear three-quarter camera, soft backlight through tall windows plus weak ambient fill, tools and shelves forming deep interior perspective.",
+      "caption": "mdanime_style, adult man, early 40s, full body, rear three-quarter view, rust overshirt, dark denim, craft studio, soft backlight, ambient fill, workbench, shelves, deep interior perspective"
+    },
+    {
+      "id": "0007",
+      "content_prompt": "Completely new subject. Clearly adult woman in her early 30s, upper-body portrait, short platinum-blond pixie cut, dark teal blouse, seated near a matte plaster wall in a cafe corner, three-quarter face view, soft directional side light that clearly models cheek, nose, jaw and neck planes, shallow foreground object and readable background depth.",
+      "caption": "mdanime_style, adult woman, early 30s, upper body, platinum-blond pixie cut, dark teal blouse, cafe corner, three-quarter face, soft directional side lighting, modeled cheek nose jaw and neck planes, spatial depth"
+    },
+    {
+      "id": "0008",
+      "content_prompt": "Completely new subject. Clearly adult man in his mid 30s, upper-body framing, shoulder-length black hair tied low, burgundy hoodie under a light gray utility vest, front-facing outdoors beneath an overcast sky, soft diffuse daylight, pedestrian bridge rail and distant skyline behind him.",
+      "caption": "mdanime_style, adult man, mid 30s, upper body, front-facing, tied black hair, burgundy hoodie, gray utility vest, outdoor pedestrian bridge, overcast diffuse daylight, distant skyline"
+    },
+    {
+      "id": "0009",
+      "content_prompt": "Completely new subject. Clearly adult woman in her late 20s, upper-body near-profile, long dark violet hair in a loose braid, muted mustard cardigan, standing in a small evening kitchen, warm side practical light and cool weak window fill, hair masses separated into dimensional strands without glossy shine, cabinets and counter visible behind.",
+      "caption": "mdanime_style, adult woman, late 20s, upper body near-profile, long dark violet braid, mustard cardigan, evening kitchen, warm side practical lighting, cool window fill, dimensional hair masses, cabinet depth"
+    },
+    {
+      "id": "0010",
+      "content_prompt": "Completely new subject. Clearly adult man in his late 40s, upper-body portrait, short salt-and-pepper hair, clean-shaven, muted brown button shirt, seated in a quiet office, three-quarter camera from slightly below eye level, window backlight plus soft neutral fill preserving facial volume, desk edge in foreground and shelves in background.",
+      "caption": "mdanime_style, adult man, late 40s, upper body, salt-and-pepper hair, brown button shirt, quiet office, three-quarter camera, window backlight, soft neutral fill, modeled facial volume, foreground desk and background shelves"
+    },
+    {
+      "id": "0011",
+      "content_prompt": "No people. Contemporary living room with a large fabric sofa, low wooden table, floor lamp, rug, sideboard and books. Wide camera from doorway height, one foreground chair edge, clear middle-ground furniture grouping and back wall shelving. Soft afternoon window light, matte fabric, wood and painted surfaces, coherent dimensional anime environment rendering.",
+      "caption": "mdanime_style, no people, contemporary living room, wide interior view, fabric sofa, wooden table, floor lamp, rug, sideboard, books, soft afternoon window lighting, matte materials, foreground midground background depth"
+    },
+    {
+      "id": "0012",
+      "content_prompt": "No people. Functional creative workroom with long desk, ergonomic chair, storage cabinets, pegboard tools, stacked boxes and a secondary worktable. Camera from one corner at chest height, strong diagonal room perspective, soft neutral ceiling light plus window fill, matte painted metal, wood and fabric surfaces.",
+      "caption": "mdanime_style, no people, creative workroom, deep diagonal interior perspective, desk, chair, storage cabinets, pegboard tools, boxes, worktable, neutral ceiling lighting, window fill, matte wood metal and fabric"
+    },
+    {
+      "id": "0013",
+      "content_prompt": "No people. Quiet cafe interior with wooden tables, upholstered chairs, painted metal chair frames, ceramic cups and secondary glass partitions. Medium-wide camera across two table rows, daylight from side windows, reflections kept restrained and secondary, clear layered seating depth and consistent matte dimensional anime treatment.",
+      "caption": "mdanime_style, no people, cafe interior, medium-wide view, wooden tables, upholstered chairs, painted metal, ceramic cups, secondary glass, side daylight, restrained reflections, layered seating depth"
+    },
+    {
+      "id": "0014",
+      "content_prompt": "No people. Calm bedroom in morning light with upholstered bed, rumpled duvet, pillows, wooden bedside cabinet, curtain, wardrobe and small rug. Camera near foot of bed, slightly elevated, soft angled sunlight through curtains, visible cloth thickness and furniture volume, clear near-to-far room depth.",
+      "caption": "mdanime_style, no people, bedroom, morning light, upholstered bed, rumpled duvet, pillows, wooden cabinet, curtain, wardrobe, rug, slightly elevated camera, cloth volume, near-to-far room depth"
+    },
+    {
+      "id": "0015",
+      "content_prompt": "No people in the foreground. Broad urban sidewalk with matte concrete and brick buildings, street trees, bench, bicycle rack and distant small pedestrians only as background scale cues. Wide eye-level camera looking diagonally down the street, soft midday light, strong linear perspective and distinct foreground, middle distance and far distance.",
+      "caption": "mdanime_style, urban sidewalk, wide eye-level view, concrete and brick buildings, street trees, bench, bicycle rack, distant pedestrians, soft midday lighting, strong linear perspective, foreground middle distance far distance"
+    },
+    {
+      "id": "0016",
+      "content_prompt": "No people. Quiet residential street at early evening with detached houses, low walls, utility poles, parked compact car, shrubs and receding road. Wide camera from sidewalk level, warm low sun grazing building planes with cool ambient fill, matte painted walls and asphalt, clear architectural volume.",
+      "caption": "mdanime_style, residential street, early evening, detached houses, low walls, utility poles, parked compact car, shrubs, receding road, warm grazing sunlight, cool ambient fill, architectural volume"
+    },
+    {
+      "id": "0017",
+      "content_prompt": "No people. Public park with a wooden bench in the near foreground, curved walking path, grass, several tree trunks crossing middle distance and a small pavilion far behind. Wide camera at seated eye height, soft cloudy daylight, foliage grouped as dimensional masses rather than flat patterns, strong distance separation.",
+      "caption": "mdanime_style, public park, wooden bench, curved walking path, grass, trees, distant pavilion, seated eye-height camera, cloudy daylight, dimensional foliage masses, strong foreground background distance"
+    },
+    {
+      "id": "0018",
+      "content_prompt": "Object-focused still life, no people. One wooden dining chair beside a small round side table with folded linen draped over the chair back. Three-quarter camera at chair-seat height in a simple room, soft side window light, matte wood grain and cloth folds, contact shadows and object thickness clearly modeled, restrained background.",
+      "caption": "mdanime_style, object study, wooden dining chair, small round table, folded linen, three-quarter camera, soft side window lighting, matte wood, fabric folds, contact shadows, modeled object thickness"
+    },
+    {
+      "id": "0019",
+      "content_prompt": "Object-focused arrangement, no people. Canvas shoulder bag, leather shoes and two folded garments placed on a low bench, viewed from a high three-quarter angle. Soft diagonal window light, distinct canvas, leather and fabric responses kept mostly matte, overlapping objects creating readable depth without glossy product-photography styling.",
+      "caption": "mdanime_style, object arrangement, canvas shoulder bag, leather shoes, folded clothes, low bench, high three-quarter camera, soft diagonal window lighting, canvas leather and fabric, overlapping object depth, matte response"
+    },
+    {
+      "id": "0020",
+      "content_prompt": "Object-focused workspace, no people. Wooden desk with matte painted desk lamp, several books, notebook, ceramic pen cup and one small painted-metal device. Oblique medium camera with a book edge in the foreground and shelving softly visible behind, warm-neutral task light plus ambient fill, clear spacing and volume among objects.",
+      "caption": "mdanime_style, object workspace, wooden desk, painted desk lamp, books, notebook, ceramic pen cup, small painted-metal device, oblique camera, warm-neutral task lighting, ambient fill, clear spatial arrangement and object volume"
+    }
+  ]
+}
