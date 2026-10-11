@@ -24,7 +24,7 @@ def main() -> int:
 
     try:
         webview.create_window(
-            "MEMORIELA Local Image Generator",
+            "local-RAG",
             URL,
             width=1280,
             height=900,
