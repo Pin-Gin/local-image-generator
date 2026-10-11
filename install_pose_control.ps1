@@ -27,13 +27,33 @@ function Invoke-GitChecked {
   }
 }
 
+function Test-PythonModule {
+  param([string]$Module)
+
+  # Windows PowerShell can promote native stderr into a terminating error when
+  # $ErrorActionPreference is Stop. Temporarily relax it so a normal ImportError
+  # is handled through the process exit code instead of aborting this installer.
+  $PreviousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "Continue"
+    & $Python -s -c "import importlib; importlib.import_module('$Module')" 2>$null
+    $ExitCode = $LASTEXITCODE
+  }
+  finally {
+    $ErrorActionPreference = $PreviousPreference
+  }
+
+  return ($ExitCode -eq 0)
+}
+
 function Ensure-PythonModule {
   param(
     [string]$Module,
     [string]$Package
   )
-  & $Python -s -c "import importlib; importlib.import_module('$Module')" 2>$null
-  if ($LASTEXITCODE -eq 0) {
+
+  Write-Host "[POSE:PYTHON-MODULE:CHECK] $Module"
+  if (Test-PythonModule $Module) {
     Write-Host "[POSE:PYTHON-MODULE:OK] $Module"
     return
   }
@@ -44,10 +64,10 @@ function Ensure-PythonModule {
     throw "pip install failed for $Package"
   }
 
-  & $Python -s -c "import importlib; importlib.import_module('$Module')"
-  if ($LASTEXITCODE -ne 0) {
+  if (-not (Test-PythonModule $Module)) {
     throw "Python module still unavailable after install: $Module"
   }
+  Write-Host "[POSE:PYTHON-MODULE:OK] $Module"
 }
 
 function Download-Asset {
