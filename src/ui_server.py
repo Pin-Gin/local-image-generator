@@ -150,6 +150,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "generation": {
                     "generation_id": result.generation_id,
                     "prompt_id": result.prompt_id,
+                    "generation_mode": result.generation_mode,
                     "seed_mode": request_options.get("seed_mode"),
                     "seed": request_options.get("seed"),
                     "output_url": f"/generated/{relative_output}",
