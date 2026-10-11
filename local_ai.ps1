@@ -1,9 +1,12 @@
 param(
   [ValidateSet("setup", "start", "status", "verify")]
   [string]$Action = "status",
+
   [ValidateSet("learn", "dev", "all")]
   [string]$Role = "learn",
-  [string]$Prompt = "短く自己紹介してください。",
+
+  [string]$Prompt = "Briefly introduce yourself.",
+
   [string]$Image = ""
 )
 
@@ -44,7 +47,7 @@ function Start-LocalAI {
   }
 
   if (-not (Test-Path $OllamaExe)) {
-    throw "Local AI runtime is not installed. Run: powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action setup -Role learn"
+    throw "Local AI runtime is not installed. Run local_ai.ps1 -Action setup -Role learn first."
   }
 
   New-Item -ItemType Directory -Force -Path $ModelsRoot | Out-Null
@@ -65,7 +68,7 @@ Set-Location $RepoRoot
 
 switch ($Action) {
   "setup" {
-    & powershell -ExecutionPolicy Bypass -File .\setup_local_ai.ps1 -Role $Role
+    & powershell.exe -ExecutionPolicy Bypass -File ".\setup_local_ai.ps1" -Role $Role
     if ($LASTEXITCODE -ne 0) {
       exit $LASTEXITCODE
     }
@@ -82,12 +85,15 @@ switch ($Action) {
       Write-Host "[LOCAL-AI:OFFLINE] $BaseUrl"
       exit 2
     }
+
     $version = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/version" -TimeoutSec 5
     $tags = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/tags" -TimeoutSec 10
+
     Write-Host "[LOCAL-AI:OK] api=$BaseUrl"
     if ($null -ne $version.version) {
       Write-Host "[LOCAL-AI:OK] version=$($version.version)"
     }
+
     foreach ($model in $tags.models) {
       Write-Host "[LOCAL-AI:MODEL] $($model.name)"
     }
@@ -98,17 +104,28 @@ switch ($Action) {
     if ($Role -eq "all") {
       throw "verify requires -Role learn or -Role dev"
     }
+
     Start-LocalAI
+
     $python = Join-Path $RepoRoot "tools\python312\python.exe"
     if (-not (Test-Path $python)) {
       $python = "python"
     }
 
-    $args = @("src\local_ai_smoke.py", "--role", $Role, "--prompt", $Prompt)
-    if ($Image) {
-      $args += @("--image", $Image)
+    $smokeArgs = @(
+      "src\local_ai_smoke.py",
+      "--role",
+      $Role,
+      "--prompt",
+      $Prompt
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Image)) {
+      $smokeArgs += "--image"
+      $smokeArgs += $Image
     }
-    & $python @args
+
+    & $python @smokeArgs
     exit $LASTEXITCODE
   }
 }
