@@ -27,7 +27,9 @@ python -m PyInstaller `
   --add-data "shared;shared" `
   --add-data "domains;domains" `
   --add-data "learning\registry;learning\registry" `
+  --add-data "learning\local-ai\schemas;learning\local-ai\schemas" `
   --hidden-import webview.platforms.edgechromium `
+  --hidden-import oracledb `
   src\desktop_app.py
 
 Write-Host "[BUILD:OK] dist\local-RAG\local-RAG.exe"
