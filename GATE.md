@@ -1,6 +1,6 @@
 # MEMORIELA Local Image Generator — Production Gates
 
-Status: **INITIAL / ACTIVE FOR FOUNDATION PHASE**
+Status: **ACTIVE / G0–G3 VERIFIED**
 
 ## Gate principle
 
@@ -9,6 +9,8 @@ A feature is not promoted to production-ready status because code exists. It mus
 No failed result is silently relabeled as PASS.
 
 ## G0 — Repository Foundation
+
+**Status: PASS**
 
 PASS requires:
 
@@ -22,6 +24,8 @@ This gate does not prove local runtime execution.
 
 ## G1 — Local Core Bootstrap
 
+**Status: PASS — locally verified**
+
 PASS requires local execution proving:
 
 - application/core entry point starts
@@ -31,6 +35,8 @@ PASS requires local execution proving:
 - fatal startup errors are reported clearly
 
 ## G2 — ComfyUI Connectivity
+
+**Status: PASS — locally verified**
 
 PASS requires local execution proving:
 
@@ -42,6 +48,8 @@ PASS requires local execution proving:
 
 ## G3 — Authority / Profile Compilation
 
+**Status: PASS — locally verified**
+
 PASS requires:
 
 - generation request loads an explicit generation profile
@@ -52,7 +60,19 @@ PASS requires:
 
 Fetching source documents without affecting or validating the compiled generation request is not sufficient for this gate.
 
+Verified G3 authority state:
+
+- repository: `Pin-Gin/MEMORIELA`
+- branch: `main`
+- authority commit: `da167885779897d6b643d19218183e035bdbcfd5`
+- working Master SHA-256: `81ac67b8395d5e3b49abcd75db77d420aa9cab94bcff4b582eaaed13bfeaf94d`
+- compiled workflow SHA-256: `c879a1e46f62c3be987def3cb227dd24c968ddded1501685bacb6d9da41f6cdc`
+
+This G3 PASS verifies the current working-Master compilation path only. It does not promote YURA to final Production Authority and does not override the authority lifecycle recorded in MEMORIELA.
+
 ## G4 — Manifest and Output Integrity
+
+**Status: NEXT**
 
 PASS requires:
 
@@ -92,6 +112,8 @@ PASS requires:
 
 ## Current status
 
-- Prototype evidence exists for local ComfyUI generation and Python-to-ComfyUI API execution.
-- Production repository foundation is being constructed now.
-- No production runtime gate beyond repository foundation is currently claimed as PASS.
+- G0 Repository Foundation: PASS
+- G1 Local Core Bootstrap: PASS
+- G2 ComfyUI Connectivity: PASS
+- G3 Authority / Profile Compilation: PASS
+- G4 Manifest and Output Integrity: NEXT
