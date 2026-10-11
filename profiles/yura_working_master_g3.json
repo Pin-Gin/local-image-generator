@@ -1,0 +1,44 @@
+{
+  "profile_id": "yura-working-master-g3",
+  "profile_version": 1,
+  "status": "transitional-working-master",
+  "character": "YURA",
+  "authority_mode": "working_master_refinement",
+  "authority": {
+    "repository": "Pin-Gin/MEMORIELA",
+    "branch": "main",
+    "allowed_paths": [
+      "visuals/yura/identity/master/YURA_MASTER_GENERATION_LIFECYCLE.md",
+      "visuals/yura/identity/master/YURA_VISUAL_MASTER_STATUS.md",
+      "visuals/yura/identity/master/YURA_VISUAL_TEXT.md",
+      "visuals/yura/identity/master/YURA_VISUAL_MASTER.png"
+    ],
+    "master_image_path": "visuals/yura/identity/master/YURA_VISUAL_MASTER.png",
+    "master_status_path": "visuals/yura/identity/master/YURA_VISUAL_MASTER_STATUS.md",
+    "lifecycle_path": "visuals/yura/identity/master/YURA_MASTER_GENERATION_LIFECYCLE.md",
+    "visual_text_path": "visuals/yura/identity/master/YURA_VISUAL_TEXT.md",
+    "required_status_markers": [
+      "WORKING MASTER VISUAL SELECTION = YES",
+      "PRODUCTION AUTHORITY SWITCH     = NOT YET"
+    ],
+    "required_lifecycle_markers": [
+      "Status: **AUTHOR-APPROVED / ACTIVE**",
+      "Working Master baseline status alone does not activate Phase D."
+    ]
+  },
+  "workflow": {
+    "template": "workflows/yura_working_master_img2img_api.json",
+    "checkpoint": "sd_xl_base_1.0.safetensors",
+    "seed": 1,
+    "steps": 20,
+    "cfg": 6.5,
+    "sampler_name": "euler",
+    "scheduler": "normal",
+    "denoise": 0.3,
+    "filename_prefix": "MEMORIELA_G3_YURA"
+  },
+  "prompt": {
+    "positive": "2D anime illustration, preserve the referenced character identity, preserve the referenced body balance and hair identity, full body, front view, standing, calm neutral expression, plain white background",
+    "negative": "photorealistic, semi-realistic, 3d, cgi, pbr, warm brown eyes, malformed anatomy, extra limbs, blurry, low quality"
+  }
+}
