@@ -16,6 +16,15 @@
     <section class="panel">
       <label for="profile">Profile</label>
       <select id="profile"></select>
+
+      <div class="seed-controls">
+        <label for="seed-mode">Seed</label>
+        <select id="seed-mode">
+          <option value="RANDOM" selected>Random</option>
+          <option value="FIXED">Fixed</option>
+        </select>
+        <input id="seed-value" type="number" min="0" max="9223372036854775807" step="1" value="1" disabled>
+      </div>
     </section>
 
     <section id="messages" class="messages">
