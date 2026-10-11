@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,7 +11,13 @@ from typing import Any
 from intent_parser import parse_intent
 
 
-ROOT = Path(__file__).resolve().parent.parent
+def _resource_root() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
+
+
+ROOT = _resource_root()
 INTENT_ROOT = ROOT / "intent"
 MAX_SEED = (1 << 53) - 1
 SEED_MODES = {"PROFILE", "RANDOM", "FIXED"}
