@@ -43,7 +43,7 @@ const devChatLog = document.getElementById('dev-chat-log');
 const modeMeta = {
   generate: {
     title: '画像生成',
-    description: '自然言語またはJSONを入力して画像を生成します。',
+    description: '入力をローカルAIで学習済み資産と照合してから画像を生成します。',
     view: 'generate-view',
   },
   learn: {
@@ -429,12 +429,12 @@ form.addEventListener('submit', async (event) => {
     return;
   }
 
-  generationStatus.textContent = '生成中...';
+  generationStatus.textContent = 'ローカルAIで学習済み資産を照合 → 生成中...';
   generationStatus.classList.remove('error');
   generationMeta.textContent = '';
   generatedImage.hidden = true;
   imagePlaceholder.hidden = false;
-  imagePlaceholder.textContent = '生成中...';
+  imagePlaceholder.textContent = 'AI照合・生成中...';
   generateButton.disabled = true;
 
   try {
@@ -444,16 +444,23 @@ form.addEventListener('submit', async (event) => {
     const generation = payload.generation;
     const inputMode = payload.request?.prompt_input?.mode || 'unknown';
     const generationMode = generation.generation_mode || payload.request?.target_mode || 'unknown';
+    const learning = payload.request?.learning || {};
 
     generatedImage.src = `${generation.output_url}?t=${Date.now()}`;
     generatedImage.hidden = false;
     imagePlaceholder.hidden = true;
-    generationStatus.textContent = '生成完了';
+    const learnedCount = Array.isArray(generation.learned_asset_ids) ? generation.learned_asset_ids.length : 0;
+    generationStatus.textContent = learnedCount > 0
+      ? `生成完了 · 学習済み資産 ${learnedCount}件適用`
+      : '生成完了 · 追加学習資産なし';
     generationMeta.textContent = JSON.stringify({
       generation_id: generation.generation_id,
       input_mode: inputMode,
       generation_mode: generationMode,
       seed: generation.seed,
+      learned_asset_ids: generation.learned_asset_ids || [],
+      learning_selector_model: learning.selector_model || null,
+      learning_selector_reason: learning.reason || '',
     }, null, 2);
   } catch (error) {
     generationStatus.textContent = `生成エラー: ${error.message}`;
