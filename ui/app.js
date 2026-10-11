@@ -94,17 +94,19 @@ form.addEventListener('submit', async (event) => {
 
     const generation = payload.generation;
     const inputMode = payload.request?.prompt_input?.mode || 'unknown';
+    const generationMode = generation.generation_mode || payload.request?.target_mode || 'unknown';
     generatedImage.src = `${generation.output_url}?t=${Date.now()}`;
     generatedImage.hidden = false;
     generationStatus.textContent = '生成完了';
     generationMeta.textContent = JSON.stringify({
       generation_id: generation.generation_id,
       input_mode: inputMode,
+      generation_mode: generationMode,
       intent_status: payload.request?.intent?.status,
       seed: generation.seed,
       output_sha256: generation.output_sha256,
     }, null, 2);
-    addMessage(`画像を生成しました。入力形式=${inputMode}, seed=${generation.seed}`, 'assistant');
+    addMessage(`画像を生成しました。mode=${generationMode}, seed=${generation.seed}`, 'assistant');
   } catch (error) {
     generationStatus.textContent = '生成失敗';
     addMessage(`生成エラー: ${error.message}`, 'system');
