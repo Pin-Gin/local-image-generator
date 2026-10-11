@@ -4,6 +4,14 @@ This area owns local learning for the shared rendering style only. It is separat
 
 Target learned style: `Matte Dimensional Anime`.
 
+## Local trainer location
+
+Keep the training tool inside this repository root:
+
+`C:/Dev/local-image-generator/tools/sd-scripts/`
+
+Do not place the trainer at `C:/Dev/sd-scripts` or another sibling directory.
+
 ## Dataset contract
 
 Place training images under:
