@@ -20,14 +20,28 @@ header p { margin: 6px 0 24px; color: #aeb6c2; }
   margin-top: 14px;
 }
 .panel label, .panel h2 { display: block; margin: 0 0 10px; }
-select, textarea, button { font: inherit; }
-select, textarea {
+select, textarea, input, button { font: inherit; }
+select, textarea, input {
   width: 100%;
   background: #101318;
   color: #f2f4f8;
   border: 1px solid #343c47;
   border-radius: 8px;
   padding: 10px 12px;
+}
+.seed-controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr;
+  gap: 10px;
+  margin-top: 14px;
+  align-items: end;
+}
+.seed-controls label {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+.seed-controls input:disabled {
+  opacity: 0.55;
 }
 .messages {
   min-height: 300px;
