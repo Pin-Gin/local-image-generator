@@ -4,6 +4,14 @@ Status: **ACTIVE LOCAL IMAGE GENERATION APPLICATION**
 
 This repository is the production development root for the local-RAG desktop image-generation application.
 
+## Continuation checkpoint
+
+Before continuing implementation in a new chat/session, read:
+
+`docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md`
+
+It records the latest verified local state, completed implementation, unresolved defects, open specifications, and the intended continuation direction after the first successful learned-rendering LoRA training and LoRA-backed FREE generation.
+
 ## Product split
 
 local-RAG has two generation domains plus one shared rendering layer:
@@ -61,6 +69,7 @@ domains/memoriela/           MEMORIELA-domain rules/assets
   situations/                reusable situation definitions
   backgrounds/               reusable background assets/metadata
 learning/rendering/           shared-rendering dataset/training pipeline
+docs/assistant-context/      continuation/handoff state for future sessions
 cache/                       runtime cache
 database/                    SQLite runtime database
 outputs/                     generated outputs/manifests
@@ -81,6 +90,7 @@ The external MEMORIELA repository remains the authority for MEMORIELA canon and 
 
 ## Governing documents
 
+- `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md` — latest continuation checkpoint and verification state
 - `SPEC.md` — production scope and architecture
 - `GATE.md` — verification and promotion gates
 - `START_HERE.md` — repository entry point
