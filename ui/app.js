@@ -74,6 +74,12 @@ seedModeSelect.addEventListener('change', () => {
   seedValueInput.disabled = seedModeSelect.value !== 'FIXED';
 });
 
+promptInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  if (!generateButton.disabled) form.requestSubmit();
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
