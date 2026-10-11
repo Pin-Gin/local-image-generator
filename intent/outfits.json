@@ -1,5 +1,14 @@
 {
   "schema_version": 1,
   "category": "outfit",
-  "entries": []
+  "entries": [
+    {
+      "id": "MASTER_REFERENCE",
+      "aliases": [
+        "服装はマスターと同じ",
+        "マスターと同じ服装",
+        "服装そのまま"
+      ]
+    }
+  ]
 }
