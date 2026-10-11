@@ -36,6 +36,7 @@ INTENT_PROMPT_FRAGMENTS = {
 }
 
 SHARED_RENDERING_PATH = Path("shared/rendering/matte_dimensional_anime.json")
+FREE_PROFILE_ID = "free-sdxl-v1"
 FREE_MODES = {"free_text2img", "generic_text2img"}
 MEMORIELA_MODES = {"memoriela_character", "yura_img2img"}
 
@@ -166,11 +167,12 @@ def build_generation_plan(
     if generation_domain not in {"free", "memoriela", None}:
         raise ValueError("request.generation_domain must be free or memoriela")
 
-    profile_id = request.get("profile_id")
-    if not isinstance(profile_id, str) or not profile_id:
+    requested_profile_id = request.get("profile_id")
+    if not isinstance(requested_profile_id, str) or not requested_profile_id:
         raise ValueError("request.profile_id must be a non-empty string")
 
-    profile_path = find_profile_path(profiles_root, profile_id)
+    effective_profile_id = FREE_PROFILE_ID if target_mode in FREE_MODES else requested_profile_id
+    profile_path = find_profile_path(profiles_root, effective_profile_id)
     base_profile = _load_json(profile_path)
     derived = copy.deepcopy(base_profile)
 
@@ -269,6 +271,8 @@ def build_generation_plan(
         "rendering_id": shared_rendering.get("rendering_id"),
         "rendering_version": shared_rendering.get("rendering_version"),
         "rendering_lora_enabled": shared_rendering["lora"].get("enabled"),
+        "requested_profile_id": requested_profile_id,
+        "effective_profile_id": effective_profile_id,
         "base_profile_path": str(profile_path.relative_to(root)),
         "base_profile_sha256": hashlib.sha256(profile_path.read_bytes()).hexdigest(),
     }
