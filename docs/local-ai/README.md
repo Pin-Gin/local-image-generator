@@ -1,6 +1,6 @@
 # local-RAG Local AI Runtime
 
-Status: **IMPLEMENTED FOUNDATION / LOCAL VERIFICATION REQUIRED**
+Status: **RUNTIME SETUP VERIFIED / CHAT AND VISION VERIFICATION PENDING**
 
 This subsystem provides the local language/vision-model runtime used by future LEARN and DEV modes. It is intentionally separate from ComfyUI image generation.
 
@@ -62,6 +62,42 @@ Purpose:
 - later plan -> diff -> apply -> test workflows.
 
 The current implementation is **chat/analysis only**. It does not yet grant the model filesystem write, shell, Git, test, or build tools. Those capabilities require an explicit approval/execution layer and are not to be inferred from the presence of the DEV role.
+
+## Verified local setup evidence
+
+On 2026-10-11 the user completed the LEARN setup successfully on the local Windows/RTX 5080 machine.
+
+Observed successful setup output included:
+
+```text
+[LOCAL-AI] Downloading Ollama v0.34.0 ...
+[LOCAL-AI] Extracting into tools\ollama ...
+[LOCAL-AI] Starting project-local Ollama on 127.0.0.1:11435 ...
+[LOCAL-AI] Pulling model: qwen3-vl:8b
+pulling ed12a4674d72: 100% ... 6.1 GB
+verifying sha256 digest
+writing manifest
+success
+[LOCAL-AI:SETUP:OK] runtime=C:\Dev\local-image-generator\tools\ollama\ollama.exe
+[LOCAL-AI:SETUP:OK] models=C:\Dev\local-image-generator\tools\ollama\models
+[LOCAL-AI:SETUP:OK] api=http://127.0.0.1:11435
+[LOCAL-AI:SETUP:OK] role=learn
+```
+
+Therefore these items are VERIFIED:
+
+- project-local Ollama runtime download/extraction;
+- project-local service startup on `127.0.0.1:11435`;
+- `qwen3-vl:8b` model download into the project-local model store.
+
+These items are still NOT VERIFIED at this checkpoint:
+
+- actual LEARN text chat response;
+- actual LEARN image/vision response;
+- browser UI integration;
+- persistent image-learning workflow;
+- DEV model runtime;
+- DEV filesystem/Git/shell execution tools.
 
 ## Setup
 
@@ -156,4 +192,4 @@ The browser UI has **not yet been switched to the requested ChatGPT-like mode dr
 
 The files in this directory/repository prove only that the integration code exists.
 
-Do not mark the local AI runtime/model/API as VERIFIED until the user has run the setup and smoke commands on the RTX 5080 machine and supplied successful output.
+Do not mark text chat, image/vision understanding, UI integration, dataset registration, or DEV execution as VERIFIED until the user has run the corresponding local checks and supplied successful output.
