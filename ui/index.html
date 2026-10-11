@@ -19,17 +19,27 @@
     </section>
 
     <section id="messages" class="messages">
-      <div class="message system">生成したい内容を入力してください。現段階では入力内容をGeneration Request JSONへ変換するところまでです。</div>
+      <div class="message system">生成したい内容を入力してください。JSON確認と画像生成を同じ入力から実行できます。</div>
     </section>
 
     <form id="chat-form" class="composer">
-      <textarea id="prompt" rows="4" placeholder="例：ゆらを白背景で正面立ちにして"></textarea>
-      <button type="submit">JSONを作成</button>
+      <textarea id="prompt" rows="4" placeholder="例：ゆらを白背景で正面立ち、服装と髪型はマスターと同じ、落ち着いた表情、2Dアニメ調で"></textarea>
+      <div class="actions">
+        <button id="json-button" type="submit">JSONを作成</button>
+        <button id="generate-button" type="button">画像を生成</button>
+      </div>
     </form>
 
     <section class="panel">
       <h2>Generation Request JSON</h2>
       <pre id="json-preview">未作成</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Generated Image</h2>
+      <div id="generation-status">未生成</div>
+      <img id="generated-image" class="generated-image" alt="Generated result" hidden>
+      <pre id="generation-meta"></pre>
     </section>
   </main>
   <script src="app.js"></script>
