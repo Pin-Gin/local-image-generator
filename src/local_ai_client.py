@@ -171,11 +171,14 @@ class LocalAIClient:
         *,
         history: list[dict[str, Any]] | None = None,
         images_base64: list[str] | None = None,
+        json_mode: bool = False,
     ) -> LocalAIChatResult:
         if role not in self.roles:
             raise ValueError(f"unknown local AI role: {role}")
         if not isinstance(message, str) or not message.strip():
             raise ValueError("local AI message must be a non-empty string")
+        if not isinstance(json_mode, bool):
+            raise ValueError("local AI json_mode must be boolean")
 
         role_cfg = self.roles[role]
         images = images_base64 or []
@@ -214,21 +217,21 @@ class LocalAIClient:
             user_message["images"] = images
         messages.append(user_message)
 
-        response = self._request_json(
-            "POST",
-            "/api/chat",
-            {
-                "model": role_cfg["model"],
-                "messages": messages,
-                "think": role_cfg["think"],
-                "stream": False,
-                "keep_alive": self.keep_alive,
-                "options": {
-                    "num_ctx": role_cfg["num_ctx"],
-                    "num_predict": role_cfg["num_predict"],
-                },
+        request_payload: dict[str, Any] = {
+            "model": role_cfg["model"],
+            "messages": messages,
+            "think": role_cfg["think"],
+            "stream": False,
+            "keep_alive": self.keep_alive,
+            "options": {
+                "num_ctx": role_cfg["num_ctx"],
+                "num_predict": role_cfg["num_predict"],
             },
-        )
+        }
+        if json_mode:
+            request_payload["format"] = "json"
+
+        response = self._request_json("POST", "/api/chat", request_payload)
 
         response_message = response.get("message")
         if not isinstance(response_message, dict):
