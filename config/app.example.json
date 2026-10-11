@@ -5,7 +5,8 @@
   },
   "comfyui": {
     "base_url": "http://127.0.0.1:8188",
-    "timeout_seconds": 5
+    "timeout_seconds": 5,
+    "generation_timeout_seconds": 180
   },
   "paths": {
     "database": "database/memoriela_local.db",
