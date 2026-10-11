@@ -3,6 +3,12 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $RepoRoot
 
+$LegacyDist = Join-Path $RepoRoot "dist\MEMORIELA"
+if (Test-Path $LegacyDist) {
+  Write-Host "[CLEAN] Removing legacy dist\MEMORIELA..."
+  Remove-Item -Recurse -Force $LegacyDist
+}
+
 Write-Host "[BUILD] Installing desktop dependencies..."
 python -m pip install -r requirements-desktop.txt
 
