@@ -51,6 +51,78 @@ def _resolve_seed(seed_mode: str, seed: int | None) -> tuple[str, int | None]:
     return mode, seed
 
 
+def _flatten_json_prompt(value: Any, prefix: str = "") -> list[str]:
+    parts: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in {"negative", "profile_id", "seed", "seed_mode"}:
+                continue
+            label = f"{prefix} {key}".strip()
+            parts.extend(_flatten_json_prompt(child, label))
+    elif isinstance(value, list):
+        for child in value:
+            parts.extend(_flatten_json_prompt(child, prefix))
+    elif value is not None and not isinstance(value, bool):
+        text = str(value).strip()
+        if text:
+            parts.append(f"{prefix} {text}".strip())
+    return parts
+
+
+def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        parsed_json = json.loads(text)
+    except json.JSONDecodeError:
+        parsed_json = None
+
+    if not isinstance(parsed_json, dict):
+        return (
+            parse_intent(text, INTENT_ROOT),
+            {
+                "mode": "text",
+                "positive": text,
+                "negative": None,
+                "json": None,
+            },
+        )
+
+    prompt_value = parsed_json.get("prompt")
+    positive = parsed_json.get("positive")
+    negative = parsed_json.get("negative")
+
+    if isinstance(prompt_value, dict):
+        if positive is None:
+            positive = prompt_value.get("positive")
+        if negative is None:
+            negative = prompt_value.get("negative")
+    elif isinstance(prompt_value, str) and positive is None:
+        positive = prompt_value
+
+    if positive is not None and not isinstance(positive, str):
+        raise ValueError("JSON positive/prompt must be a string when supplied")
+    if negative is not None and not isinstance(negative, str):
+        raise ValueError("JSON negative must be a string when supplied")
+
+    if not isinstance(positive, str) or not positive.strip():
+        positive = ", ".join(_flatten_json_prompt(parsed_json)).strip()
+    if not positive:
+        raise ValueError("JSON input does not contain usable generation content")
+
+    intent_source = parsed_json.get("text")
+    if not isinstance(intent_source, str) or not intent_source.strip():
+        intent_source = positive
+
+    return (
+        parse_intent(intent_source, INTENT_ROOT),
+        {
+            "mode": "json",
+            "positive": positive.strip(),
+            "negative": negative.strip() if isinstance(negative, str) and negative.strip() else None,
+            "json": parsed_json,
+        },
+    )
+
+
 def build_generation_request(
     user_text: str,
     profile_id: str,
@@ -69,7 +141,27 @@ def build_generation_request(
         raise ValueError("source must be chat_ui, cli, or api")
 
     resolved_seed_mode, resolved_seed = _resolve_seed(seed_mode, seed)
-    intent = parse_intent(text, dictionary_root or INTENT_ROOT)
+
+    # Use the caller-supplied dictionary root for text mode while keeping JSON
+    # handling deterministic and local.
+    try:
+        parsed_json = json.loads(text)
+    except json.JSONDecodeError:
+        parsed_json = None
+
+    if isinstance(parsed_json, dict):
+        intent, prompt_input = _build_prompt_input(text)
+        if dictionary_root is not None:
+            intent_source = prompt_input["positive"]
+            intent = parse_intent(intent_source, dictionary_root)
+    else:
+        intent = parse_intent(text, dictionary_root or INTENT_ROOT)
+        prompt_input = {
+            "mode": "text",
+            "positive": text,
+            "negative": None,
+            "json": None,
+        }
 
     return {
         "schema_version": 1,
@@ -79,6 +171,7 @@ def build_generation_request(
         "user_text": text,
         "profile_id": profile,
         "intent": intent,
+        "prompt_input": prompt_input,
         "options": {
             "reuse_policy": "PREFER_EXISTING",
             "seed_mode": resolved_seed_mode,
