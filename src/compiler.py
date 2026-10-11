@@ -42,6 +42,13 @@ def _canonical_json_bytes(payload: Any) -> bytes:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
+def _normalize_comfy_lora_name(value: str) -> str:
+    # ComfyUI on Windows exposes nested LoRAs with backslashes in the
+    # LoraLoader input list. Normalize at compile time so stale/shared config
+    # using forward slashes cannot produce a prompt validation mismatch.
+    return value.replace("/", "\\")
+
+
 def _validate_rendering_lora(profile: dict[str, Any]) -> dict[str, Any] | None:
     value = profile.get("rendering_lora")
     if value is None:
@@ -146,7 +153,7 @@ def compile_generation(root: Path, profile_path: Path, cache_root: Path) -> Comp
             compiled["90"] = {
                 "class_type": "LoraLoader",
                 "inputs": {
-                    "lora_name": rendering_lora["lora_name"],
+                    "lora_name": _normalize_comfy_lora_name(rendering_lora["lora_name"]),
                     "strength_model": rendering_lora["strength_model"],
                     "strength_clip": rendering_lora["strength_clip"],
                     "model": ["1", 0],
