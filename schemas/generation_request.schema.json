@@ -10,7 +10,8 @@
     "source",
     "user_text",
     "profile_id",
-    "intent"
+    "intent",
+    "prompt_input"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -31,6 +32,17 @@
         "expression": {"type": ["string", "null"]},
         "hair": {"type": ["string", "null"]},
         "rendering": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "prompt_input": {
+      "type": "object",
+      "required": ["mode", "positive", "negative", "json"],
+      "properties": {
+        "mode": {"enum": ["text", "json"]},
+        "positive": {"type": "string", "minLength": 1},
+        "negative": {"type": ["string", "null"]},
+        "json": {"type": ["object", "null"]}
       },
       "additionalProperties": false
     },
