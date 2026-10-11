@@ -5,6 +5,22 @@
     {
       "id": "YURA",
       "aliases": ["ゆら", "久遠ゆら", "YURA"]
+    },
+    {
+      "id": "KANAME",
+      "aliases": ["要", "水瀬要", "KANAME"]
+    },
+    {
+      "id": "SHIORI",
+      "aliases": ["栞", "SHIORI"]
+    },
+    {
+      "id": "YAMATO",
+      "aliases": ["大和", "YAMATO"]
+    },
+    {
+      "id": "MIO",
+      "aliases": ["美緒", "MIO"]
     }
   ]
 }
