@@ -18,23 +18,23 @@
   "items": [
     {
       "id": "0001",
-      "content_prompt": "Clearly adult woman in her late 20s, full body, straight dark auburn shoulder-length hair, cream knit top and charcoal ankle-length trousers, relaxed standing pose in a contemporary apartment living room, near-front camera with slight three-quarter turn, soft side light from a window, sofa and shelving creating visible room depth.",
-      "caption": "mdanime_style, adult woman, late 20s, full body, relaxed standing pose, cream knit top, charcoal trousers, contemporary living room, near-front three-quarter camera, soft side window lighting, fabric and wood, foreground and background depth"
+      "content_prompt": "Clearly adult woman, full body, indoors, near-front camera, soft side lighting, casual clothing. Keep the subject, clothing, room and camera independent from all other items while preserving the shared rendering characteristics.",
+      "caption": "mdanime_style, adult woman, full body, indoor room, near-front camera, casual clothing, soft side lighting, matte surfaces, dimensional anime shading, foreground and background depth"
     },
     {
       "id": "0002",
-      "content_prompt": "Clearly adult man in his early 30s, full body, short sandy-blond hair, navy casual jacket over a gray shirt and tan trousers, standing outdoors on a broad pedestrian plaza, three-quarter camera view, bright but soft daytime light, stone paving, trees and low buildings receding into the distance.",
-      "caption": "mdanime_style, adult man, early 30s, full body, standing, navy casual jacket, tan trousers, outdoor pedestrian plaza, three-quarter camera, soft daytime lighting, stone paving, trees, distant buildings"
+      "content_prompt": "Clearly adult man, full body, outdoors, three-quarter camera, daytime, jacket and trousers. Keep the subject, environment and composition independent from all other items while preserving the shared rendering characteristics.",
+      "caption": "mdanime_style, adult man, full body, outdoor scene, three-quarter camera, daytime lighting, jacket, trousers, matte surfaces, dimensional anime shading, spatial depth"
     },
     {
       "id": "0003",
-      "content_prompt": "Clearly adult woman in her mid 30s, full body, long wavy copper hair tied loosely back, muted blue long coat over simple dark clothing, standing near a riverside promenade at sunset, subtle low-angle camera, warm evening rim light with soft fill, railing, river and distant buildings creating layered depth.",
-      "caption": "mdanime_style, adult woman, mid 30s, full body, long coat, riverside promenade, subtle low-angle camera, evening rim lighting, matte fabric, railing, river, layered distant city depth"
+      "content_prompt": "Clearly adult woman, full body, outdoors, subtle low-angle camera, evening, long coat. Keep the subject, environment and composition independent from all other items while preserving the shared rendering characteristics.",
+      "caption": "mdanime_style, adult woman, full body, outdoor scene, subtle low-angle camera, evening lighting, long coat, matte fabric, dimensional anime shading, layered depth"
     },
     {
       "id": "0004",
-      "content_prompt": "Clearly adult man in his late 20s, full body, short dark brown curly hair, olive knit sweater and black straight-leg trousers, natural standing posture inside a quiet library lounge, slight high-angle camera, diffuse ceiling and window light, tables, chairs and bookcases receding behind him.",
-      "caption": "mdanime_style, adult man, late 20s, full body, natural standing posture, olive knit sweater, black trousers, library lounge, slight high-angle camera, diffuse indoor lighting, furniture and bookcase depth"
+      "content_prompt": "Clearly adult man, full body, indoors, slight high-angle camera, natural standing posture, knit clothing. Keep the subject, room and composition independent from all other items while preserving the shared rendering characteristics.",
+      "caption": "mdanime_style, adult man, full body, indoor room, slight high-angle camera, natural standing posture, knit clothing, diffuse indoor lighting, dimensional anime shading, interior depth"
     },
     {
       "id": "0005",
