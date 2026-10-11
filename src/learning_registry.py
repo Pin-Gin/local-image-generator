@@ -283,7 +283,7 @@ def select_assets_with_local_ai(
 
     assets = eligible_ai_assets(registry, generation_domain)
     prompt = _build_selector_prompt(user_text.strip(), generation_domain, assets)
-    result = client.chat("generate", prompt, history=[])
+    result = client.chat("generate", prompt, history=[], json_mode=True)
     payload = _extract_json_object(result.content)
 
     selected = payload.get("selected_asset_ids")
