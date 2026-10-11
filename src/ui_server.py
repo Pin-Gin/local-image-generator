@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import traceback
@@ -11,8 +12,11 @@ from urllib.parse import unquote, urlsplit
 
 from chat_contract import build_generation_request, list_profile_ids
 from generation_bridge import run_chat_generation
+from json_parts import json_part_filename, resolve_json_part_store, validate_json_part
 from learning_registry import load_registry, resolve_registry_path, select_assets_with_local_ai
 from local_ai_client import LocalAIClient, load_local_ai_config
+from local_ai_tools import LocalAIToolbox
+from oracle_knowledge_store import OracleKnowledgeStore
 
 
 def _resource_root() -> Path:
@@ -27,6 +31,7 @@ PROFILES_ROOT = ROOT / "profiles"
 INTENT_ROOT = ROOT / "intent"
 CONFIG_PATH = ROOT / "config" / "app.example.json"
 LOCAL_AI_CONFIG_PATH = ROOT / "config" / "local_ai.json"
+LOCAL_TOOLS_CONFIG_PATH = ROOT / "config" / "local_tools.json"
 OUTPUTS_ROOT = ROOT / "outputs"
 
 
@@ -58,6 +63,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _local_ai_client(self) -> LocalAIClient:
         return LocalAIClient(load_local_ai_config(LOCAL_AI_CONFIG_PATH))
+
+    def _local_ai_toolbox(self) -> LocalAIToolbox:
+        return LocalAIToolbox(ROOT, LOCAL_TOOLS_CONFIG_PATH)
 
     def _attach_learned_asset_selection(
         self,
@@ -156,6 +164,19 @@ class Handler(SimpleHTTPRequestHandler):
                     },
                 )
             return
+        if self.path == "/api/local-tools/status":
+            try:
+                toolbox = self._local_ai_toolbox()
+                self._send_json(HTTPStatus.OK, {"local_tools": toolbox.status()})
+            except Exception as exc:
+                self._send_json(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    {
+                        "error": str(exc) or exc.__class__.__name__,
+                        "error_type": exc.__class__.__name__,
+                    },
+                )
+            return
         if self.path == "/api/learning-registry":
             try:
                 registry_path = resolve_registry_path(ROOT)
@@ -191,7 +212,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
-    def _handle_local_ai_chat(self, payload: dict[str, Any]) -> None:
+    def _validate_local_ai_payload(self, payload: dict[str, Any]) -> tuple[str, str, list[Any] | None, list[str] | None]:
         role = payload.get("role")
         message = payload.get("message")
         history = payload.get("history")
@@ -205,14 +226,9 @@ class Handler(SimpleHTTPRequestHandler):
             raise ValueError("local AI history must be an array")
         if images is not None and not isinstance(images, list):
             raise ValueError("local AI images must be an array")
+        return role, message, history, images
 
-        client = self._local_ai_client()
-        result = client.chat(
-            role,
-            message,
-            history=history,
-            images_base64=images,
-        )
+    def _send_local_ai_result(self, result: Any) -> None:
         self._send_json(
             HTTPStatus.OK,
             {
@@ -228,10 +244,92 @@ class Handler(SimpleHTTPRequestHandler):
             },
         )
 
-    def do_POST(self) -> None:
-        if self.path == "/api/local-ai/chat":
+    def _handle_local_ai_chat(self, payload: dict[str, Any], *, with_tools: bool = False) -> None:
+        role, message, history, images = self._validate_local_ai_payload(payload)
+        client = self._local_ai_client()
+        if with_tools:
+            toolbox = self._local_ai_toolbox()
+            tools = toolbox.tools_for_role(role)
+            if tools:
+                result = client.chat_with_tools(
+                    role,
+                    message,
+                    tools=tools,
+                    execute_tool=toolbox.execute,
+                    history=history,
+                    images_base64=images,
+                )
+            else:
+                result = client.chat(role, message, history=history, images_base64=images)
+        else:
+            result = client.chat(role, message, history=history, images_base64=images)
+        self._send_local_ai_result(result)
+
+    def _handle_json_part_save(self, payload: dict[str, Any]) -> None:
+        document = payload.get("document")
+        if not isinstance(document, dict):
+            raise ValueError("document must be a JSON object")
+        part = validate_json_part(document)
+        store = resolve_json_part_store(ROOT)
+        if part["status"] == "accepted":
+            target_dir = store
+        else:
+            target_dir = store.parent / "staging"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        filename = json_part_filename(part["part_id"], part["version"])
+        target = target_dir / filename
+        raw = json.dumps(part, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n"
+        target.write_bytes(raw)
+        digest = hashlib.sha256(raw).hexdigest()
+
+        oracle_indexed = False
+        oracle_error: str | None = None
+        oracle_result: dict[str, Any] | None = None
+        store_db = OracleKnowledgeStore(ROOT)
+        if store_db.configured():
             try:
-                self._handle_local_ai_chat(self._read_json_body())
+                oracle_result = store_db.upsert_json_part(part, file_path=str(target))
+                oracle_indexed = True
+            except Exception as exc:
+                oracle_error = str(exc) or exc.__class__.__name__
+
+        self._send_json(
+            HTTPStatus.OK,
+            {
+                "json_part": {
+                    "ref": f"part:{part['part_id']}@{part['version']}",
+                    "status": part["status"],
+                    "path": str(target),
+                    "sha256": digest,
+                    "oracle_indexed": oracle_indexed,
+                    "oracle": oracle_result,
+                    "oracle_error": oracle_error,
+                }
+            },
+        )
+
+    def do_POST(self) -> None:
+        if self.path in {"/api/local-ai/chat", "/api/local-ai/tool-chat"}:
+            try:
+                self._handle_local_ai_chat(
+                    self._read_json_body(),
+                    with_tools=self.path == "/api/local-ai/tool-chat",
+                )
+            except Exception as exc:
+                detail = traceback.format_exc(limit=8)
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {
+                        "error": str(exc) or exc.__class__.__name__,
+                        "error_type": exc.__class__.__name__,
+                        "detail": detail,
+                    },
+                )
+            return
+
+        if self.path == "/api/knowledge/json-part":
+            try:
+                self._handle_json_part_save(self._read_json_body())
             except Exception as exc:
                 detail = traceback.format_exc(limit=8)
                 self._send_json(
