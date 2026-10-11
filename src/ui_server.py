@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -11,7 +12,13 @@ from chat_contract import build_generation_request, list_profile_ids
 from generation_bridge import run_chat_generation
 
 
-ROOT = Path(__file__).resolve().parent.parent
+def _resource_root() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
+
+
+ROOT = _resource_root()
 UI_ROOT = ROOT / "ui"
 PROFILES_ROOT = ROOT / "profiles"
 INTENT_ROOT = ROOT / "intent"
