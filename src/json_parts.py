@@ -155,25 +155,25 @@ def json_part_filename(part_id: str, version: int) -> str:
     return f"{part_id}.v{version}.json"
 
 
-def _literal_manual_scalar(key: str, value: Any) -> str:
-    """Render a manual JSON leaf without rewriting either its key or its value."""
+def _literal_manual_scalar(path: str, value: Any) -> str:
+    """Render a manual JSON leaf without rewriting its path or value."""
     if value is None:
-        return f"{key}: null" if key else "null"
+        return f"{path}: null" if path else "null"
     if isinstance(value, bool):
         literal = "true" if value else "false"
-        return f"{key}: {literal}" if key else literal
+        return f"{path}: {literal}" if path else literal
     if isinstance(value, (int, float)):
         literal = str(value)
-        return f"{key}: {literal}" if key else literal
+        return f"{path}: {literal}" if path else literal
     if isinstance(value, str):
         if value == "":
             return ""
-        return f"{key}: {value}" if key else value
+        return f"{path}: {value}" if path else value
     return ""
 
 
-def _flatten_manual_generation_literal(value: Any, *, key: str = "") -> list[str]:
-    """Flatten manual structured JSON while preserving original keys, values, order, and duplicates."""
+def _flatten_manual_generation_literal(value: Any, *, path: str = "") -> list[str]:
+    """Flatten manual JSON while preserving hierarchy, original keys/values, order, and duplicates."""
     fragments: list[str] = []
     if isinstance(value, dict):
         for child_key, child_value in value.items():
@@ -181,12 +181,13 @@ def _flatten_manual_generation_literal(value: Any, *, key: str = "") -> list[str
                 continue
             if child_key.casefold() in MANUAL_METADATA_KEYS:
                 continue
-            fragments.extend(_flatten_manual_generation_literal(child_value, key=child_key))
+            child_path = f"{path}.{child_key}" if path else child_key
+            fragments.extend(_flatten_manual_generation_literal(child_value, path=child_path))
     elif isinstance(value, list):
         for child in value:
-            fragments.extend(_flatten_manual_generation_literal(child, key=key))
+            fragments.extend(_flatten_manual_generation_literal(child, path=path))
     else:
-        fragment = _literal_manual_scalar(key, value)
+        fragment = _literal_manual_scalar(path, value)
         if fragment:
             fragments.append(fragment)
     return fragments
@@ -302,8 +303,8 @@ def load_json_part(resource_root: Path, ref: str, *, accepted_only: bool = True)
         negative = generation.get("negative", "")
     else:
         # Manual structured JSON files live directly in the accepted json-parts store.
-        # The file is never rewritten. Generation prompt conversion preserves the manual
-        # document's original keys, values, order, and duplicate leaves verbatim.
+        # The file is never rewritten. Generation-time linearization preserves the
+        # original hierarchy as dotted paths and keeps values/order/duplicates unchanged.
         part_type, name, positive, negative = _manual_json_part_fields(
             payload,
             part_id=part_id,
