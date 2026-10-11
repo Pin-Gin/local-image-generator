@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from comfyui_client import fetch_system_stats
+from comfyui_client import fetch_system_stats, run_workflow_and_download
 
 
 REQUIRED_PATH_KEYS = (
@@ -25,6 +25,14 @@ def repository_root() -> Path:
 def load_config(config_path: Path) -> dict:
     with config_path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def load_workflow(workflow_path: Path) -> dict:
+    with workflow_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError("workflow JSON must be an object")
+    return payload
 
 
 def validate_and_prepare_paths(root: Path, config: dict) -> dict[str, Path]:
@@ -103,6 +111,11 @@ def main() -> int:
         action="store_true",
         help="After bootstrap, verify ComfyUI /system_stats connectivity.",
     )
+    parser.add_argument(
+        "--run-g2-smoke",
+        action="store_true",
+        help="Run the standard G2 smoke-test workflow, poll history, and download the generated image.",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -119,7 +132,7 @@ def main() -> int:
 
     print_bootstrap_summary(root, config_path, config, resolved_paths)
 
-    if not args.check_comfyui:
+    if not args.check_comfyui and not args.run_g2_smoke:
         return 0
 
     comfyui = config.get("comfyui")
@@ -129,12 +142,16 @@ def main() -> int:
 
     base_url = comfyui.get("base_url")
     timeout_seconds = comfyui.get("timeout_seconds", 5)
+    generation_timeout_seconds = comfyui.get("generation_timeout_seconds", 180)
 
     if not isinstance(base_url, str):
         print("[COMFYUI:FAIL] config.comfyui.base_url must be a string", file=sys.stderr)
         return 2
     if not isinstance(timeout_seconds, (int, float)) or timeout_seconds <= 0:
         print("[COMFYUI:FAIL] config.comfyui.timeout_seconds must be a positive number", file=sys.stderr)
+        return 2
+    if not isinstance(generation_timeout_seconds, (int, float)) or generation_timeout_seconds <= 0:
+        print("[COMFYUI:FAIL] config.comfyui.generation_timeout_seconds must be a positive number", file=sys.stderr)
         return 2
 
     try:
@@ -145,6 +162,32 @@ def main() -> int:
 
     print(f"comfyui_endpoint={status.endpoint}")
     print_comfyui_summary(status.payload)
+
+    if not args.run_g2_smoke:
+        return 0
+
+    workflow_path = resolved_paths["workflows"] / "sdxl_smoke_api.json"
+    try:
+        workflow = load_workflow(workflow_path)
+        print(f"workflow={workflow_path}")
+        print("[G2:SUBMIT]")
+        result = run_workflow_and_download(
+            base_url=base_url,
+            workflow=workflow,
+            output_dir=resolved_paths["outputs"],
+            request_timeout_seconds=float(timeout_seconds),
+            generation_timeout_seconds=float(generation_timeout_seconds),
+        )
+    except (OSError, json.JSONDecodeError, ValueError, RuntimeError) as exc:
+        print(f"[G2:FAIL] {exc}", file=sys.stderr)
+        return 3
+
+    print("[G2:OK]")
+    print(f"prompt_id={result.prompt_id}")
+    print(f"remote_filename={result.remote_filename}")
+    print(f"remote_subfolder={result.remote_subfolder}")
+    print(f"remote_type={result.remote_type}")
+    print(f"output={result.output_path}")
     return 0
 
 
