@@ -2,7 +2,8 @@
   "schema_version": 1,
   "trainer": {
     "repo": "C:/Dev/local-image-generator/tools/sd-scripts",
-    "python_executable": "C:/Dev/local-image-generator/tools/sd-scripts/venv/Scripts/python.exe"
+    "python_executable": "C:/Dev/local-image-generator/tools/sd-scripts/venv/Scripts/python.exe",
+    "accelerate_config": "learning/rendering/accelerate_config.yaml"
   },
   "model": {
     "pretrained_model_name_or_path": "SET_LOCAL_PATH_TO_SDXL_BASE",
