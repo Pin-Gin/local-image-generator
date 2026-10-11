@@ -2,88 +2,78 @@
 
 Last checkpoint: **2026-10-11**
 
-This document is the continuation state for a new ChatGPT/Codex session. Read `START_HERE.md` first, then this file before changing architecture or implementation.
+Read `START_HERE.md` first, then this file before changing architecture or implementation.
 
-## 1. Purpose of this checkpoint
+This document distinguishes:
 
-This file records:
+- **VERIFIED** — user supplied successful local runtime evidence;
+- **IMPLEMENTED / UNVERIFIED** — code exists in Git but the user has not yet locally confirmed the latest path;
+- **NOT IMPLEMENTED** — no completed runtime path yet;
+- **OPEN SPEC** — design choice still not fixed.
 
-- what has actually been implemented;
-- what has actually been verified on the user's Windows/RTX 5080 machine;
-- what is implemented but not fully verified;
-- what is not implemented;
-- known defects / technical debt;
-- open specification decisions;
-- the intended next direction.
-
-Do not promote an item from `UNVERIFIED`, `NOT IMPLEMENTED`, or `OPEN SPEC` to completed without local execution evidence from the user.
+Do not promote UNVERIFIED items without user-side execution evidence.
 
 ---
 
-## 2. Product direction that must be preserved
+## 1. Product direction
 
-`local-RAG` is a local Windows desktop image-generation application backed by ComfyUI.
+`local-RAG` is the Windows desktop application. `MEMORIELA` remains the external canon / approved visual-authority repository and must not become the generic app/build name.
 
-The architecture is intentionally split into three concerns:
+Generation domains remain separated:
 
 ```text
 FREE
-  natural language / JSON -> generic text2img
-  no MEMORIELA-specific identity/outfit/background assets
+  generic natural-language / JSON image generation
+  no MEMORIELA identity/outfit/background authority
 
 MEMORIELA
-  named cast -> controlled character production
+  named cast -> controlled character generation
   character / outfit / pose / expression / situation / background / camera are modular concerns
 
 SHARED RENDERING
   Matte Dimensional Anime
-  describes how the image is rendered, not who/what is depicted
-  used by both FREE and MEMORIELA
+  character-independent
+  applied to FREE and MEMORIELA
 ```
 
-Important current decisions:
+Current architectural objective for generation is now:
 
-- `MEMORIELA` is the external canon/visual-authority repository, not the desktop application name.
-- Desktop/build name is `local-RAG`.
-- FREE must not silently consume MEMORIELA character assets.
-- Named MEMORIELA cast routes to MEMORIELA; unregistered characters must fail rather than silently become YURA or FREE.
-- Shared rendering must remain character-independent.
-- The target shared style is `Matte Dimensional Anime`: anime foundation, pronounced dimensionality/depth, matte surfaces, restrained highlights, no photoreal/PBR/plastic-CGI drift.
-- Rendering consistency is now learned with a LoRA; prompt-only rendering is not considered sufficient for the intended production direction.
-- The user does **not** need an A/B comparison against LoRA-off rendering; rendering drift without the learned LoRA is already known. Current evaluation should use LoRA-on generation.
-- A hand/anatomy failure must not be “fixed” by retraining the rendering LoRA unless evidence shows the rendering LoRA itself is the cause. Keep responsibility layers separate.
+```text
+User input
+  -> deterministic FREE / MEMORIELA routing
+  -> local AI checks registered learned assets
+  -> if a relevant learned asset exists, select and apply it
+  -> generation plan
+  -> compiler
+  -> ComfyUI
+  -> image
+  -> optional local-AI visual QA / learning discussion
+```
+
+The local AI must not silently rewrite the user's request or invent assets. It may only select exact registered asset IDs.
 
 ---
 
-## 3. Verified local environment
+## 2. Verified local environment
 
-### ComfyUI generation runtime — VERIFIED
-
-User-verified startup environment:
+### ComfyUI — VERIFIED
 
 ```text
 ComfyUI: 0.39.0
-ComfyUI Python: 3.13.14
-ComfyUI PyTorch: 2.14.0+cu130
+Python: 3.13.14 embedded
+PyTorch: 2.14.0+cu130
 GPU: NVIDIA GeForce RTX 5080
-VRAM reported by ComfyUI: 16275 MB
+VRAM: 16275 MB
 API/UI: http://127.0.0.1:8188
 ```
 
-ComfyUI local root currently used by the user:
+ComfyUI root:
 
 ```text
 C:\Users\shift\Downloads\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable
 ```
 
-Start command:
-
-```powershell
-cd C:\Users\shift\Downloads\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable
-.\run_nvidia_gpu.bat
-```
-
-Existing SDXL Base checkpoint:
+SDXL Base:
 
 ```text
 C:\Users\shift\Downloads\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable\ComfyUI\models\checkpoints\sd_xl_base_1.0.safetensors
@@ -91,501 +81,444 @@ C:\Users\shift\Downloads\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portabl
 
 ### Rendering-LoRA training runtime — VERIFIED
 
-Project-owned tools remain under `C:\Dev\local-image-generator`:
+Project-owned tools remain below:
 
 ```text
-tools\python312
-tools\sd-scripts
-tools\sd-scripts\venv
-tools\_downloads
+C:\Dev\local-image-generator\tools\python312
+C:\Dev\local-image-generator\tools\sd-scripts
+C:\Dev\local-image-generator\tools\sd-scripts\venv
+C:\Dev\local-image-generator\tools\_downloads
 ```
 
-Verified training runtime:
+Verified:
 
 ```text
-Python: 3.12.10
-PyTorch: 2.8.0+cu128
-CUDA: True
-GPU: NVIDIA GeForce RTX 5080
+Python 3.12.10
+PyTorch 2.8.0+cu128
+CUDA True
+NVIDIA GeForce RTX 5080
 ```
 
-The project intentionally does not create a sibling `C:\Dev\sd-scripts` installation.
+### Project-local Ollama / Qwen — VERIFIED
+
+Standalone Ollama was installed below the repository rather than machine-wide:
+
+```text
+C:\Dev\local-image-generator\tools\ollama\ollama.exe
+C:\Dev\local-image-generator\tools\ollama\models\
+```
+
+Dedicated API:
+
+```text
+http://127.0.0.1:11435
+```
+
+Verified model:
+
+```text
+qwen3-vl:8b-instruct
+```
+
+User-verified LEARN text inference:
+
+```text
+[LOCAL-AI:CHAT:OK]
+model=qwen3-vl:8b-instruct
+```
+
+User-verified direct image/Vision inference also succeeded. The model correctly described broad pose/outfit/background/camera structure, though it overclaimed some details (for example stance width / finger certainty). Therefore local Vision output is **analysis evidence, not automatic ground truth**.
 
 ---
 
-## 4. Desktop application / generation path
+## 3. Shared rendering — VERIFIED core path
 
-### Implemented
-
-The repository contains the local application path:
-
-```text
-local-RAG.exe
-  -> local backend/controller
-  -> request / intent parsing
-  -> FREE or MEMORIELA routing
-  -> shared rendering injection
-  -> workflow compiler
-  -> ComfyUI HTTP API
-  -> output image + manifest/database path
-```
-
-Relevant areas include:
-
-```text
-src/
-ui/
-profiles/
-workflows/
-intent/
-shared/rendering/
-domains/free/
-domains/memoriela/
-```
-
-FREE uses `free-sdxl-v1` and text2img.
-
-MEMORIELA named-character routing exists. Only YURA currently has a connected runtime character profile; other named cast members are detected but intentionally fail if no runtime character profile is registered.
-
-### Desktop packaging
-
-PyInstaller/pywebview desktop packaging exists and the output name is `local-RAG`.
-
-ComfyUI is still a separately started local service. Automatic ComfyUI startup from the desktop application has **not** been agreed as production behavior and is **not implemented as a completed feature**.
-
----
-
-## 5. Shared rendering implementation
-
-Shared rendering source:
+Source:
 
 ```text
 shared/rendering/matte_dimensional_anime.json
 ```
 
-Current LoRA integration path:
-
-- shared config is loaded in `src/generation_bridge.py`;
-- the effective generation plan receives `rendering_lora`;
-- `src/compiler.py` injects the standard ComfyUI `LoraLoader` node;
-- positive/negative CLIP and sampler model are rewired through the LoRA node;
-- current compiler normalizes LoRA selector names for Windows ComfyUI (`/` -> `\`) before submitting the workflow.
-
-Recent selector-path fixes:
+Initial dataset:
 
 ```text
-a185ff44dab545ca3d3498b425385e42e056262f
-9814a366e4c7bcf3be59796f5b6c1c1f546172c5
+20 images
+folder: learning/rendering/dataset/20_mdanime
+5 epochs
+2000 steps
 ```
 
-The Git copy of `shared/rendering/matte_dimensional_anime.json` remains a portable source definition and currently has LoRA disabled by default. Local `publish -Activate` changes the working copy for the user's runtime.
-
----
-
-## 6. Rendering dataset pipeline — IMPLEMENTED AND VERIFIED
-
-Manifest-driven dataset preparation exists under:
+Verified training completion:
 
 ```text
-learning/rendering/
-```
-
-Implemented files/functions include:
-
-```text
-generation_manifest.json
-GENERATION_BATCH_INSTRUCTIONS.md
-incoming/
-dataset/20_mdanime/
-src/rendering_dataset_prepare.py
-train_rendering.ps1 -Action prepare
-```
-
-The importer can:
-
-- map incoming images by ID;
-- sequentially assign untagged images when explicitly requested;
-- preserve existing slots unless `-Replace` is used;
-- create captions from the manifest;
-- detect byte-identical duplicates by SHA-256;
-- report missing/ambiguous/unassigned images.
-
-The user generated and imported a complete 20-image dataset.
-
-Verified preparation result:
-
-```text
-[DATASET] copied=20 preserved=0 ready=20/20
-[DATASET:PREPARE:OK]
-```
-
-Verified dataset validation:
-
-```text
-[LEARNING:OK] dataset_images=20
-[LEARNING:OK] trainer=C:\Dev\local-image-generator\tools\sd-scripts\sdxl_train_network.py
-[LEARNING:OK] python=C:\Dev\local-image-generator\tools\sd-scripts\venv\Scripts\python.exe
-[LEARNING:OK] model=C:\Users\shift\Downloads\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable\ComfyUI\models\checkpoints\sd_xl_base_1.0.safetensors
-```
-
-Training dataset/model files are local runtime assets and intentionally not committed.
-
----
-
-## 7. Rendering LoRA training — VERIFIED
-
-Training configuration was tuned to 5 epochs with the current `20_mdanime` repeat structure, resulting in 2000 training steps for the initial run.
-
-Verified user output:
-
-```text
-steps: 100%|...| 2000/2000 [20:08<00:00, 1.65it/s, avr_loss=0.142]
+steps: 100% ... 2000/2000 ... avr_loss=0.142
 [LEARNING:TRAIN:OK]
 ```
 
-This confirms the training process completed successfully on the RTX 5080.
+The trained Matte Dimensional Anime LoRA was published and used in at least one actual FREE generation after fixing Windows ComfyUI `LoraLoader` selector-name normalization.
 
-The loss value is not itself a visual-quality guarantee; visual generation is the acceptance criterion.
-
-Expected local output name:
+Manual visual evaluation of that generated sample:
 
 ```text
-learning/rendering/output/matte_dimensional_anime_v1.safetensors
+rendering / dimensionality : PASS
+anime retention            : PASS
+depth                       : PASS
+hand/finger anatomy         : FAIL
 ```
 
-Expected ComfyUI selector path after publishing:
+The hand failure remains categorized as pose/anatomy quality, not evidence that shared rendering must be retrained.
 
-```text
-local-rag\rendering\matte_dimensional_anime_v1.safetensors
-```
-
-The `.safetensors` weight is a local runtime artifact and is not stored in Git.
+The trained `.safetensors` file remains a local runtime artifact and is not stored in Git.
 
 ---
 
-## 8. Publish / activation / generation verification
+## 4. Existing desktop modes
 
-### What is verified
-
-The learned LoRA was published/recognized sufficiently to reach actual LoRA-backed image generation after resolving ComfyUI `LoraLoader` selector-path validation issues.
-
-A FREE image was generated with the learned rendering active. The sample visually showed:
+Requested mode switch UI is implemented as a ChatGPT-like dropdown rather than permanent tabs:
 
 ```text
-RENDERING / dimensionality : PASS by manual inspection
-DEPTH                      : PASS by manual inspection
-ANIME style retention      : PASS by manual inspection
-HAND / finger anatomy      : FAIL
+画像生成
+学習
+開発
 ```
 
-The notable defect in that sample was the raised hand near the hair/head: fingers and contact geometry were ambiguous.
+### 画像生成
 
-Interpretation at this checkpoint:
+Existing FREE / MEMORIELA generation UI plus local generation AI assistance.
 
-- shared rendering learning is producing the intended broad visual direction;
-- the observed hand failure is an anatomy/pose-control problem, not evidence by itself that the rendering LoRA needs retraining.
+### 学習
 
-### Current local-config warning
+Local Qwen Vision chat exists. Implemented UI capabilities include:
 
-During LoRA path troubleshooting, a manual Windows PowerShell 5.1 JSON read/write attempt caused or may have caused encoding/working-copy corruption in the user's local:
+- file image upload;
+- image preview;
+- drag-and-drop image intake;
+- Windows screenshot clipboard image intake (`Ctrl+V` path);
+- copy button on local-AI replies;
+- image discussion with `qwen3-vl:8b-instruct`.
+
+The original UI image request exceeded Ollama's default 4096-token context. LEARN is now configured with:
 
 ```text
-shared/rendering/matte_dimensional_anime.json
+num_ctx: 16384
+num_predict: 1024
+max_history_messages: 6
 ```
 
-Symptoms seen locally included mojibake and JSON parsing errors after `Get-Content` / `ConvertFrom-Json` without explicit UTF-8 handling.
+The direct CLI Vision path is VERIFIED. The latest pywebview UI paths for context fix / drag-drop / clipboard / copy are **IMPLEMENTED / UNVERIFIED** until the user tests them after rebuilding.
 
-The Git copy is the recovery source. At the start of a new session, **do not assume the user's current working copy is healthy** until checked.
+### 開発
 
-Safe recovery/verification sequence:
+The DEV role is configured for future local code work with:
+
+```text
+qwen2.5-coder:14b
+```
+
+But the model is not yet confirmed downloaded/run in the current checkpoint, and filesystem/Git/shell/write tools are **NOT IMPLEMENTED**. Current DEV mode remains planning/chat only.
+
+---
+
+## 5. Pre-generation learned-asset selection — IMPLEMENTED / UNVERIFIED
+
+The user clarified the required behavior as:
+
+> input -> if AI has a relevant learned asset, use it for generation
+
+The generation architecture was therefore changed from post-generation-only AI analysis to a pre-generation learned-asset selection path.
+
+Current code flow:
+
+```text
+user input
+  -> build_generation_request / FREE-MEMORIELA route
+  -> LocalAIClient role=generate
+  -> learning/registry/registry.json
+  -> Qwen selects exact registered asset IDs
+  -> validate selected IDs against registry/domain/state
+  -> build_generation_plan
+  -> apply learned prompt fragments and/or learned LoRAs
+  -> compiler
+  -> ComfyUI
+```
+
+Key files:
+
+```text
+learning/registry/registry.json
+src/learning_registry.py
+src/ui_server.py
+src/generation_bridge.py
+src/compiler.py
+src/local_ai_client.py
+src/learning_generation_test.py
+```
+
+The selector uses Ollama JSON mode. Unknown / hallucinated asset IDs are rejected; they are not silently converted into prompts.
+
+Generation request traceability now includes:
+
+```text
+learning.registry_version
+learning.selector = local-ai
+learning.selector_role = generate
+learning.selector_model
+learning.selected_asset_ids
+learning.reason
+```
+
+Generation result metadata includes:
+
+```text
+learned_asset_ids
+```
+
+Manifest data records the learned assets that were actually resolved/applied.
+
+---
+
+## 6. Learning registry state
+
+Mutable registry source:
+
+```text
+learning/registry/registry.json
+```
+
+The desktop package also bundles a fallback copy, but `src/learning_registry.py` prefers the repository copy when local-RAG is run from the repository/build tree so future published assets can update a mutable registry.
+
+Supported conditional runtime types at this checkpoint:
+
+```text
+prompt
+lora
+```
+
+The registry also records `shared_rendering` as inventory / always-applied state, but that runtime type is not eligible for conditional AI selection.
+
+### Current production contents
+
+The registry currently records the already-trained Matte Dimensional Anime shared rendering asset as:
+
+```text
+selection_mode: always
+runtime.type: shared_rendering
+```
+
+There are currently **no real production `selection_mode: ai` hand / pose / outfit / character / background assets**.
+
+Therefore after this refactor, with today's registry, pre-generation Qwen should run but normally select:
+
+```text
+selected_asset_ids: []
+```
+
+This is expected. Shared rendering continues through the separate shared-rendering path.
+
+A future trained/published pose/hand/etc asset must be added to the registry before the generation AI can select it.
+
+---
+
+## 7. Multiple LoRA composition — IMPLEMENTED / UNVERIFIED
+
+`src/compiler.py` now supports a chained sequence:
+
+```text
+SDXL Base
+  -> Shared Rendering LoRA (if active)
+  -> selected learned LoRA #1
+  -> selected learned LoRA #2
+  -> ...
+  -> conditioning / sampler
+```
+
+Validation rejects:
+
+- duplicate learned asset IDs;
+- duplicate learned LoRA files;
+- learned LoRA duplication of the shared Rendering LoRA.
+
+Strengths remain asset-specific registry values; the compiler does not assume `1.0`.
+
+This supports future combinations such as rendering + hand/anatomy + pose + character/outfit LoRAs, but actual compatibility/strength policy must still be evaluated per trained asset.
+
+---
+
+## 8. Generation-side post-generation AI assistant
+
+The prior post-generation `生成AIアシスト` remains separate from the new selector.
+
+It can:
+
+- receive the original generation instruction;
+- inspect the current generated image;
+- discuss pose / hands / expression / outfit / background / camera / rendering;
+- optionally auto-analyze after generation;
+- send the current generated image into LEARN mode.
+
+This path is **post-generation QA / discussion**.
+
+The new registry selector is **pre-generation asset selection**.
+
+Do not conflate the two.
+
+---
+
+## 9. Persistent learning lifecycle — NOT IMPLEMENTED end-to-end
+
+This is the largest remaining gap relative to the user's final desired workflow.
+
+Current LEARN mode can visually analyze an image, but it does not yet complete:
+
+```text
+explicit acceptance
+  -> dataset registration
+  -> category-specific training dataset
+  -> train LoRA / adapter
+  -> validation
+  -> publish to ComfyUI
+  -> register asset in learning/registry/registry.json
+  -> available to pre-generation AI selector
+```
+
+Therefore do **not** tell the user that simply chatting about or uploading an image has already taught a persistent generation asset.
+
+The pre-generation consumption path now exists; the producer/publish path still needs implementation.
+
+---
+
+## 10. Hand / pose direction
+
+The original motivation for general learned assets is the ambiguous-hand failure seen in the LoRA-on image.
+
+Rendering responsibility remains separate:
+
+```text
+Rendering LoRA -> visual style / dimensional rendering
+Pose / Anatomy -> arm / hand / finger / body structure
+Character -> identity
+Outfit -> clothing identity
+```
+
+Potential future pose/anatomy runtimes include:
+
+- dedicated LoRA;
+- ControlNet / DWPose / OpenPose reference;
+- LoRA + pose control.
+
+Only `prompt` and `lora` conditional runtime assets are implemented in the new registry/compiler at this checkpoint. ControlNet runtime injection remains **NOT IMPLEMENTED**.
+
+---
+
+## 11. Known routing / technical debt
+
+### `要` false positives
+
+Current `chat_contract.py` includes a more constrained named-character detector, but the expected regression case must still be locally run:
+
+```text
+必要な背景を生成して
+```
+
+Expected: FREE.
+
+Do not claim fixed until test evidence is supplied.
+
+### DB migration
+
+Older DB naming/history preservation is not fully verified.
+
+### Profile selector vs automatic routing
+
+Visible profile selection can still be conceptually confusing because effective routing can override the requested profile.
+
+### Build locking
+
+Stop a running `local-RAG.exe` before rebuilding; Windows may lock build output/DLLs.
+
+### Shared rendering local JSON
+
+There was an earlier PowerShell 5.1 UTF-8/mojibake incident while manually editing the shared rendering JSON. Git is the recovery source. Avoid non-UTF8 PowerShell rewrites.
+
+---
+
+## 12. Local verification still required for the latest learned-generation refactor
+
+After pulling current main, first run:
 
 ```powershell
 cd C:\Dev\local-image-generator
-
-git restore .\shared\rendering\matte_dimensional_anime.json
-
-powershell -ExecutionPolicy Bypass -File .\train_rendering.ps1 -Action publish -Activate
-
-.\tools\python312\python.exe -m json.tool `
-  .\shared\rendering\matte_dimensional_anime.json > $null
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "[JSON:OK]"
-}
+python .\src\learning_generation_test.py
 ```
 
-Use Python or explicit UTF-8 when validating JSON. Do not rewrite this file with Windows PowerShell 5.1 default text encoding.
+Expected:
 
-After recovery/activation, rebuild the desktop package before testing:
+```text
+[LEARNED-GENERATION:TEST:OK]
+```
+
+Then rebuild:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build_desktop.ps1
 .\dist\local-RAG\local-RAG.exe
 ```
 
-ComfyUI does not need to be retrained for this recovery; the trained LoRA already exists locally unless the user deletes the runtime files.
-
----
-
-## 9. Learning/UI direction discussed but NOT IMPLEMENTED
-
-The user asked whether an image could be uploaded through the UI and then learned visually.
-
-Two technically different concepts were distinguished:
-
-1. **Inference-time image reference** — ControlNet / IP-Adapter / pose-reference class of behavior. This is not persistent learning.
-2. **Persistent learning** — upload accepted images into a dataset and train a LoRA/adapter locally.
-
-The user then paused implementation and requested this Git checkpoint.
-
-Therefore the following is **direction only, not an approved finished specification**:
+With the current production registry, perform a normal generation and confirm:
 
 ```text
-UI image upload
-  -> choose learning purpose/category
-  -> preview / inspect
-  -> dataset registration
-  -> caption/tag metadata
-  -> validate
-  -> local RTX 5080 training
-  -> publish/version
-  -> use together with shared Rendering LoRA
+local AI is reachable
+request.learning exists
+learned_asset_ids = []
+image still generates successfully
+shared Rendering LoRA remains active according to local shared-rendering config
 ```
 
-Potential categories discussed conceptually:
+The empty list is correct until a real conditional learned asset is published.
 
-```text
-HAND / ANATOMY
-POSE
-OUTFIT
-CHARACTER
-RENDERING
-```
-
-No UI, schema, learning registry, or specialized hand model has been implemented for this yet.
-
----
-
-## 10. High-priority NOT IMPLEMENTED items
-
-### A. Hand / anatomy correction layer
-
-Not implemented:
-
-- `learning/anatomy/hands/` pipeline;
-- hand-specific dataset contract;
-- hand/anatomy LoRA training configuration;
-- automatic application of an anatomy LoRA;
-- hand-specific QA;
-- ControlNet hand/pose reference workflow.
-
-The recent generated sample makes this the most visible next quality problem.
-
-### B. UI-driven learning
-
-Not implemented:
-
-- upload control for learning images;
-- learning-category selector;
-- dataset preview/accept/reject UI;
-- caption/tag editor or automatic caption review;
-- training progress UI;
-- cancel/retry UI;
-- publish/activate UI;
-- model version/rollback UI.
-
-### C. MEMORIELA modular asset learning
-
-Architecture/directory ownership exists, but these are not production-complete:
-
-- character LoRAs/adapters for the full cast;
-- outfit learning from outfit-only/mannequin references;
-- reusable pose assets;
-- situation/background learned assets;
-- multi-character composition/continuity.
-
-Only YURA has a connected runtime character route today.
-
----
-
-## 11. Open specification decisions that must be resolved before the next large implementation
-
-These are not yet fixed requirements. Ask/decide explicitly rather than silently choosing defaults.
-
-### 11.1 Hand/anatomy strategy
-
-Need to decide whether the hand-quality layer should be:
-
-- LoRA only;
-- ControlNet/pose reference only;
-- LoRA + ControlNet;
-- another adapter architecture.
-
-Also decide whether the goal is generic hand anatomy improvement or reproducing a specific uploaded hand/pose.
-
-### 11.2 UI “learning” semantics
-
-Need a clear distinction in the UI between:
-
-- `use this image as a generation reference now`;
-- `add this image to a persistent training dataset`.
-
-These must not be presented as the same operation.
-
-### 11.3 Dataset acceptance / QA
-
-Need to define:
-
-- minimum images per learning category;
-- image resolution/aspect policy;
-- near-duplicate detection beyond byte SHA-256;
-- caption generation and manual correction policy;
-- rejection reasons;
-- whether accepted images are immutable or versioned.
-
-### 11.4 Multiple learned modules at generation time
-
-Need to define combination order and strength policy for future stacks such as:
-
-```text
-SDXL Base
- + Shared Rendering LoRA
- + Anatomy/Hand LoRA
- + Character identity LoRA
- + Outfit LoRA
- + optional pose/control adapter
-```
-
-Do not assume all LoRAs can simply use strength `1.0` or that load order is irrelevant.
-
-### 11.5 Per-domain application
-
-Need to decide whether a future anatomy/hand module is:
-
-- global/shared for FREE + MEMORIELA;
-- enabled only in MEMORIELA;
-- selected per request.
-
-### 11.6 Model registry/versioning
-
-Need policy for:
-
-- model ID/version;
-- source dataset hash/version;
-- publish location;
-- activation state;
-- rollback;
-- keeping old weights;
-- manifest recording of all active learned modules.
-
-### 11.7 Tracked vs runtime activation state
-
-Current `publish -Activate` edits `shared/rendering/matte_dimensional_anime.json`, which is a tracked source file, while the LoRA weight itself is local and ignored.
-
-This mixes portable source configuration and machine-local activation state. Decide whether activation should move into a separate Git-ignored runtime config/registry.
-
-### 11.8 Training reproducibility
-
-`setup_rendering_learning.ps1` updates the external `sd-scripts` clone. Pinning a known compatible commit/version has not been finalized. A future setup may change if upstream changes.
-
----
-
-## 12. Known technical debt / unresolved bugs
-
-### MEMORIELA name routing false positive
-
-There is a known risk around the single-character name `要`: generic substring parsing can interpret ordinary words containing `要` (for example `必要`) as KANAME.
-
-A regression case should exist or be added for text similar to:
-
-```text
-必要な背景を生成して
-```
-
-Expected route: FREE, not KANAME/MEMORIELA.
-
-Do not claim this is resolved until the current parser/test is inspected and locally run.
-
-### Database migration
-
-Runtime database naming changed from an older MEMORIELA-specific name toward:
-
-```text
-database/local_rag.db
-```
-
-Migration/preservation of any older local history has not been fully verified. Do not claim history is automatically preserved.
-
-### UI profile selection vs automatic routing
-
-The application has automatic effective-profile/domain routing. Any visible profile selector may be confusing if it appears to control a profile that is then overridden by routing. This UI behavior still needs review.
-
-### GATE.md freshness
-
-`GATE.md` predates some of the latest training/LoRA verification work and may not represent the newest checkpoint. Treat this current-state file as the continuation record until `GATE.md` is deliberately reconciled.
-
-### Local build locking
-
-A running `local-RAG.exe` can lock build output/DLLs. Stop the desktop process before rebuilding.
+Do not create a fake production hand/pose asset merely to make the list non-empty. Use a real trained/published asset or a deliberately isolated test fixture.
 
 ---
 
 ## 13. Current state matrix
 
-| Area | State | Evidence / note |
+| Area | State | Note |
 |---|---|---|
-| ComfyUI startup/API | VERIFIED | 0.39.0, RTX 5080, localhost:8188 |
-| SDXL base generation | VERIFIED | existing local smoke/generation path |
-| Desktop app path | IMPLEMENTED / previously locally exercised | local-RAG + backend + ComfyUI API |
-| FREE text2img routing | IMPLEMENTED / exercised | used for LoRA visual test |
-| MEMORIELA YURA route | IMPLEMENTED | current connected MEMORIELA character path |
-| Other named MEMORIELA cast | DETECTION ONLY / runtime profiles missing | must fail explicitly |
-| Shared prompt rendering | IMPLEMENTED | `shared/rendering/` |
-| Rendering dataset importer | VERIFIED | 20/20 prepare PASS |
-| Rendering dataset validation | VERIFIED | 20 images PASS |
-| Training environment | VERIFIED | Python 3.12.10, torch 2.8.0+cu128, RTX 5080 |
-| Rendering LoRA training | VERIFIED | 2000/2000, TRAIN:OK |
-| Rendering LoRA ComfyUI selector normalization | IMPLEMENTED | commits a185ff4 / 9814a36 |
-| LoRA-backed FREE generation | VERIFIED at least once | visual sample produced |
-| Rendering visual direction | MANUAL PASS on sample | dimensional/matte/depth/anime retained |
-| Hand anatomy on sample | FAIL | raised hand/fingers ambiguous |
-| Current local shared-rendering JSON | MUST REVERIFY | manual PowerShell encoding incident |
-| Hand/anatomy learning | NOT IMPLEMENTED | next candidate layer |
-| UI image-to-dataset learning | NOT IMPLEMENTED | discussed only |
-| ControlNet/pose reference | NOT IMPLEMENTED | open spec |
-| Character LoRA system | NOT IMPLEMENTED as general pipeline | YURA still uses current reference path |
-| Outfit learning | NOT IMPLEMENTED | planned modular concern |
-| Model registry/rollback | NOT IMPLEMENTED | open spec |
-| ComfyUI auto-start | NOT IMPLEMENTED / not agreed | manual service start |
+| ComfyUI / RTX 5080 | VERIFIED | localhost:8188 |
+| SDXL Base | VERIFIED | existing local checkpoint |
+| Shared Rendering dataset | VERIFIED | 20/20 |
+| Shared Rendering training | VERIFIED | 2000 steps completed |
+| LoRA-backed FREE generation | VERIFIED at least once | visual result produced |
+| Rendering visual direction | MANUAL PASS on sample | hand still failed |
+| Project-local Ollama | VERIFIED | 127.0.0.1:11435 |
+| qwen3-vl:8b-instruct text chat | VERIFIED | local response returned |
+| qwen3-vl:8b-instruct direct Vision | VERIFIED | image analysis returned |
+| LEARN UI file upload/chat | IMPLEMENTED | latest UI needs reverify after context fix |
+| Drag/drop / screenshot paste / copy | IMPLEMENTED / UNVERIFIED | desktop re-test required |
+| Generation post-QA AI | IMPLEMENTED / UNVERIFIED | UI re-test required |
+| Pre-generation learned-asset AI selector | IMPLEMENTED / UNVERIFIED | new refactor |
+| Learning registry | IMPLEMENTED | only shared rendering inventory currently |
+| Conditional prompt asset consumption | IMPLEMENTED / UNVERIFIED | no real production asset yet |
+| Conditional LoRA asset consumption | IMPLEMENTED / UNVERIFIED | multi-LoRA chain added |
+| Persistent LEARN -> train -> publish -> registry | NOT IMPLEMENTED | next major workflow |
+| ControlNet/DWPose generation runtime | NOT IMPLEMENTED | future pose path |
+| DEV code-write/Git/shell tools | NOT IMPLEMENTED | chat/planning only |
 
 ---
 
-## 14. Recommended next-session start sequence
+## 14. Continuation rule
 
-A new chat/session should do this in order:
+On a new chat:
 
 1. Read `START_HERE.md`.
 2. Read this file completely.
-3. Read `SPEC.md` and `learning/rendering/README.md` only as supporting implementation docs; this file contains the latest verified checkpoint.
-4. Inspect the current main branch before changing code.
-5. Reverify/recover the local `shared/rendering/matte_dimensional_anime.json` using the safe Python JSON check above.
-6. Ensure LoRA is activated and rebuild `local-RAG` only if a generation test is needed.
-7. Do **not** spend time on LoRA-off A/B testing unless the user changes that requirement.
-8. Do **not** retrain shared rendering to address the hand defect by default.
-9. Continue from the hand/anatomy + UI image-learning design question, first resolving the open specification choices with the user.
+3. Inspect current main branch before editing.
+4. Preserve the distinction between analysis, dataset registration, training, publishing, registry activation, and generation-time application.
+5. Never claim that an uploaded image is persistently learned until the producer lifecycle actually completed.
+6. Never let Qwen invent an unregistered generation asset.
+7. Preserve FREE / MEMORIELA semantic isolation and shared-rendering independence.
+8. Prefer automated end-to-end local workflows over manual ComfyUI node construction.
+9. Keep project-created tooling under `C:\Dev\local-image-generator`.
+10. Treat local execution as unverified until the user supplies actual output.
 
----
-
-## 15. Working style / change-control rules for continuation
-
-- Preserve the user's stated objective; do not silently broaden the product.
-- Do not reinterpret a failure into a different subsystem without evidence.
-- Separate `implemented`, `locally verified`, and `proposed` states.
-- Do not claim local execution from Git changes alone.
-- If something is unclear, ask rather than inventing a specification.
-- Prefer end-to-end scripts/workflows over requiring the user to manually assemble ComfyUI nodes.
-- Keep project-created dependencies under `C:\Dev\local-image-generator` unless an existing external runtime such as ComfyUI/SDXL is intentionally referenced.
-- Keep FREE and MEMORIELA semantic assets isolated.
-- Keep shared rendering limited to rendering/style behavior.
-
-This file is the authoritative continuation checkpoint for work after the first successful learned-rendering LoRA training and LoRA-backed FREE image generation.
+The immediate engineering continuation after this checkpoint is to locally verify the new pre-generation selector, then implement the **persistent LEARN -> dataset -> train -> publish -> registry** producer path for the first real reusable pose/hand asset.
