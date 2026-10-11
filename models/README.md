@@ -31,4 +31,16 @@ The previous Downloads/ComfyUI-local duplicate checkpoint is no longer required 
 
 ComfyUI should read this directory through `extra_model_paths.yaml` rather than requiring duplicate model files under the portable ComfyUI installation.
 
+## Pose-control target
+
+Step E uses a project-owned SDXL OpenPose ControlNet at:
+
+```text
+models/controlnet/SDXL/controlnet-openpose-sdxl-1.0/diffusion_pytorch_model.safetensors
+```
+
+`install_pose_control.ps1` installs the DWPose preprocessor under the existing portable ComfyUI runtime and downloads the OpenPose ControlNet above into the project model root. The binary remains ignored by Git.
+
+The pose-control asset is not considered locally verified until ComfyUI has been restarted and `src/pose_control_capability_test.py` reports `[POSE:CAPABILITY:READY]`.
+
 Do not commit `.safetensors`, `.ckpt`, `.pt`, `.pth`, `.onnx`, or `.gguf` files.
