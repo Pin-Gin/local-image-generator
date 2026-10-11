@@ -17,7 +17,7 @@ $ArchivePath = Join-Path $DownloadsRoot "ollama-windows-amd64-$OllamaVersion.zip
 $HostAddress = "127.0.0.1:11435"
 $BaseUrl = "http://$HostAddress"
 
-$LearnModel = "qwen3-vl:8b"
+$LearnModel = "qwen3-vl:8b-instruct"
 $DevModel = "qwen2.5-coder:14b"
 
 function Test-OllamaReady {
