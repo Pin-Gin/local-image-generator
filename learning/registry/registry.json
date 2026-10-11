@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "registry_version": 1,
+  "assets": [
+    {
+      "asset_id": "shared-rendering-matte-dimensional-anime-v1",
+      "enabled": true,
+      "selection_mode": "always",
+      "domains": ["free", "memoriela"],
+      "category": "rendering",
+      "description": "Project-wide learned Matte Dimensional Anime rendering. This is already applied through the shared-rendering pipeline and is recorded here for inventory only.",
+      "concepts": [
+        "Matte Dimensional Anime",
+        "shared rendering",
+        "dimensional anime rendering"
+      ],
+      "runtime": {
+        "type": "shared_rendering"
+      }
+    }
+  ]
+}
