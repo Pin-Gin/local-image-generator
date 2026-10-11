@@ -1,8 +1,20 @@
 # local-RAG Local AI Runtime
 
-Status: **LEARN RUNTIME / TEXT CHAT / VISION VERIFIED; UI IMPLEMENTED BUT NOT YET LOCALLY VERIFIED**
+Status: **LEARN RUNTIME / TEXT / VISION / ORACLE TOOL-CALL PATH VERIFIED; SOME DESKTOP UI PATHS STILL UNVERIFIED**
 
-This subsystem provides the local language/vision-model runtime used by LEARN and future DEV modes. It is intentionally separate from ComfyUI image generation.
+This subsystem provides the project-local language/vision-model runtime used by GENERATE, LEARN, and future DEV workflows. It is intentionally separate from ComfyUI image generation.
+
+For the exact current continuation state and remaining work, read:
+
+```text
+docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md
+```
+
+For the Git/Oracle/JSON-Part tool contract, read:
+
+```text
+docs/local-ai/LOCAL_TOOLS_AND_ORACLE.md
+```
 
 ## Runtime choice
 
@@ -14,25 +26,27 @@ All project-created runtime files stay below:
 C:\Dev\local-image-generator\tools\ollama\
 ```
 
-The dedicated API endpoint is:
+Dedicated API endpoint:
 
 ```text
 http://127.0.0.1:11435
 ```
 
-Port 11435 is used so the project runtime does not depend on or collide with a normal machine-wide Ollama installation on the default port 11434.
+Port 11435 is intentional so this project does not depend on or collide with a normal machine-wide Ollama installation on 11434.
 
-Model storage is also project-local:
+Model storage:
 
 ```text
 tools\ollama\models\
 ```
 
-The runtime and model files are ignored by Git.
+Runtime/model files are Git-ignored.
+
+---
 
 ## Configured roles
 
-### LEARN
+### GENERATE
 
 ```text
 model: qwen3-vl:8b-instruct
@@ -42,20 +56,34 @@ think: false
 
 Purpose:
 
+- generation-side local AI assistance;
+- pre-generation learned-asset selection from exact registered IDs;
+- optional generated-image analysis where supported.
+
+The model must not invent asset IDs or silently broaden the user's generation request.
+
+### LEARN
+
+```text
+model: qwen3-vl:8b-instruct
+vision: yes
+think: false
+num_ctx: 16384
+num_predict: 1024
+max_history_messages: 6
+```
+
+Purpose:
+
 - local chat;
 - uploaded-image understanding;
 - pose / hand-anatomy / expression / outfit / background / camera / rendering candidate analysis;
+- controlled read-only Git/Oracle retrieval where configured;
 - later dataset-registration assistance.
 
-LEARN must distinguish between using an image as a one-time generation reference and adding it to a persistent training dataset. It must not silently choose what should be learned.
+LEARN must distinguish one-time reference use from persistent training data. It must not silently decide what should be learned, registered, trained, saved, or rejected.
 
-The system prompt explicitly requires the model to:
-
-- reply in the user's language;
-- describe only what is visibly supported;
-- not infer hidden fingers or unseen anatomy;
-- state uncertainty/ambiguity;
-- avoid claiming RAG/external retrieval/persistent learning when those actions did not occur.
+Vision output is advisory evidence, not ground truth.
 
 ### DEV
 
@@ -68,108 +96,93 @@ think: false
 Purpose:
 
 - local code analysis;
-- consume engineering instructions prepared externally;
-- later plan -> diff -> apply -> test workflows.
+- consume engineering instructions;
+- later support a controlled plan -> diff -> explicit apply -> test workflow.
 
-The current DEV implementation is **chat/analysis only**. It does not yet grant the model filesystem write, shell, Git, test, or build tools. Those capabilities require an explicit approval/execution layer and are not to be inferred from the presence of the DEV role.
+Current DEV remains planning/chat oriented. It does not have unrestricted filesystem writes, shell, Git writes, test, or build execution.
+
+The DEV model runtime itself is not yet verified in the current checkpoint.
+
+---
 
 ## Verified local evidence
 
 ### Runtime setup — VERIFIED
 
-On 2026-10-11 the user completed the LEARN setup successfully on the local Windows/RTX 5080 machine.
+On 2026-10-11 the user completed LEARN setup successfully on the local Windows/RTX 5080 machine.
 
-Observed successful setup output included:
+Project-local runtime:
 
 ```text
-[LOCAL-AI] Downloading Ollama v0.34.0 ...
-[LOCAL-AI] Extracting into tools\ollama ...
-[LOCAL-AI] Starting project-local Ollama on 127.0.0.1:11435 ...
-[LOCAL-AI] Pulling model: qwen3-vl:8b
-...
-[LOCAL-AI:SETUP:OK] runtime=C:\Dev\local-image-generator\tools\ollama\ollama.exe
-[LOCAL-AI:SETUP:OK] models=C:\Dev\local-image-generator\tools\ollama\models
-[LOCAL-AI:SETUP:OK] api=http://127.0.0.1:11435
+C:\Dev\local-image-generator\tools\ollama\ollama.exe
 ```
 
-The initial `qwen3-vl:8b` tag behaved as a thinking-oriented variant for this API use and returned an empty normal `content` field for vision requests. LEARN was therefore changed to the explicit instruct tag:
+API:
+
+```text
+http://127.0.0.1:11435
+```
+
+The initial `qwen3-vl:8b` tag did not behave correctly for the intended normal vision-chat response path, so LEARN was switched to:
 
 ```text
 qwen3-vl:8b-instruct
 ```
 
-### Text chat — VERIFIED
+### Text inference — VERIFIED
 
-User-observed output:
+Local text chat returned normal model content.
 
-```text
-[LOCAL-AI:CHAT:OK]
-model=qwen3-vl:8b
-content=I'm your local-RAG learning assistant...
-prompt_eval_count=108
-eval_count=442
-```
+### Vision inference — VERIFIED
 
-This proves local text inference worked before the later switch to the instruct tag.
+The user supplied an anime character image and received a normal structured `qwen3-vl:8b-instruct` vision response covering pose, arms/hands, outfit, background, and camera/composition.
 
-### Vision chat — VERIFIED
+The model also overclaimed some visual details, so transport/inference is VERIFIED but semantic correctness is not automatic authority.
 
-After switching LEARN to `qwen3-vl:8b-instruct`, the user supplied a full-body anime character image and received a normal `content` response.
+### Oracle-backed tool call — VERIFIED
 
-Observed output included:
+The user verified the complete LEARN tool-call route using the exact staging ref:
 
 ```text
-[LOCAL-AI:CHAT:OK]
-model=qwen3-vl:8b-instruct
-content=Pose:
-- Standing upright, facing forward with a neutral stance.
-...
-Left Arm and Hand:
-...
-Right Arm and Hand:
-...
-Finger Anatomy:
-...
-Outfit:
-...
-Background:
-...
-Camera/Composition:
-...
-prompt_eval_count=3754
-eval_count=342
+part:test.oracle-roundtrip@1
 ```
 
-Therefore these are VERIFIED:
+The path was:
 
-- project-local Ollama runtime;
-- project-local service on `127.0.0.1:11435`;
-- LEARN model installation;
-- local text chat inference;
-- image input transmission;
-- local vision inference;
-- normal textual vision response from `qwen3-vl:8b-instruct`.
+```text
+POST /api/local-ai/tool-chat
+  -> qwen3-vl:8b-instruct
+  -> json_part_get
+  -> LocalAIToolbox
+  -> Oracle LOCALRAG_KB1 / LR_JSON_PART
+  -> tool result
+  -> final qwen3-vl:8b-instruct answer
+```
 
-### Vision-quality caution
+Observed final model answer correctly returned:
 
-The first successful vision description was broadly structured correctly but contained at least one overconfident detail: it described the feet as shoulder-width apart even though the supplied image visually showed the feet much closer together. It also asserted exact finger visibility/count too confidently for stylized hands.
+```text
+ref: part:test.oracle-roundtrip@1
+status: staging
+part_id: test.oracle-roundtrip
+part_type: test
+payload.generation.positive: oracle roundtrip test
+```
 
-Therefore **vision transport/inference is VERIFIED, but semantic accuracy must not be treated as ground truth**. The local vision model is an analysis assistant, not an authority. User confirmation remains required before dataset registration or training decisions.
+Therefore the local model is not merely configured with Oracle tools; the Oracle lookup was actually called and consumed successfully.
+
+See `LOCAL_TOOLS_AND_ORACLE.md` for the full database/tool verification boundary.
+
+---
 
 ## Setup
 
-From the repository root:
+From repository root:
 
 ```powershell
 cd C:\Dev\local-image-generator
 git pull origin main
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action setup -Role learn
-```
-
-The current LEARN setup targets:
-
-```text
-qwen3-vl:8b-instruct
 ```
 
 DEV can be downloaded later:
@@ -178,62 +191,69 @@ DEV can be downloaded later:
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action setup -Role dev
 ```
 
-Or both roles can be requested:
+Or both roles:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action setup -Role all
 ```
 
-Current pinned Ollama runtime version:
+Pinned Ollama runtime version:
 
 ```text
 v0.34.0
 ```
 
-Do not silently change this pin. Reproducibility is preferred over tracking `latest` automatically.
+Do not silently change this pin. Reproducibility is preferred over automatically tracking `latest`.
+
+---
 
 ## Runtime commands
 
-Start the project-local Ollama service:
+Start:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action start
 ```
 
-Show runtime/model status:
+Status:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action status
 ```
 
-Verify LEARN chat:
+Verify LEARN text:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action verify -Role learn
 ```
 
-Verify LEARN with an image:
+Verify LEARN vision:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action verify -Role learn -Image "C:\path\to\image.png" -Prompt "この画像のポーズと手の状態を分けて説明してください。"
 ```
 
-Verify DEV after its model has been pulled:
+Verify DEV after model installation:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action verify -Role dev -Prompt "このPythonコード修正依頼を実装計画に分解してください。"
 ```
 
+---
+
 ## Backend API
 
-`src/ui_server.py` exposes:
+`src/ui_server.py` exposes local-AI/tool endpoints including:
 
 ```text
 GET  /api/local-ai/status
 POST /api/local-ai/chat
+GET  /api/local-tools/status
+POST /api/local-ai/tool-chat
+POST /api/knowledge/json-part
 ```
 
-Example chat body:
+Plain chat body example:
 
 ```json
 {
@@ -244,9 +264,37 @@ Example chat body:
 }
 ```
 
+Tool-chat gives the model only the actions permitted for the selected role in `config/local_tools.json`.
+
+Important process rule: after editing Python modules imported by `ui_server.py`, restart the running server before testing. There is no automatic hot reload.
+
+---
+
+## Controlled tool boundary
+
+Current tool design is intentionally narrow:
+
+```text
+Git      -> read-only actions
+Oracle   -> knowledge / exact JSON-Part reads through the model tool loop
+Writes   -> explicit application endpoints/actions, not silent model tool writes
+Shell    -> no arbitrary execution
+Git push -> not exposed
+```
+
+The exact Git/Oracle tool configuration lives in:
+
+```text
+config/local_tools.json
+```
+
+Do not expand permissions merely to simplify a test.
+
+---
+
 ## Desktop UI state
 
-A ChatGPT-like mode selector is now implemented in the browser/desktop UI:
+Top-level selector:
 
 ```text
 画像生成
@@ -254,32 +302,45 @@ A ChatGPT-like mode selector is now implemented in the browser/desktop UI:
 開発
 ```
 
-Implemented LEARN UI foundation:
+Implemented LEARN UI foundation includes:
 
-- top-level dropdown mode switching;
-- image upload (PNG/JPEG/WebP, max 20 MB);
-- image preview/remove;
-- local-AI status display;
-- LEARN chat history;
-- uploaded image sent as base64 to `/api/local-ai/chat`;
-- no automatic dataset registration or training.
+- mode switching;
+- image upload and preview;
+- drag/drop;
+- screenshot clipboard intake;
+- local-AI chat history;
+- copy button;
+- JSON download;
+- explicit JSON-Part registration UI path.
 
-Implemented DEV UI foundation:
+The backend JSON-Part persistence route is VERIFIED. Some desktop/pywebview interaction paths above remain IMPLEMENTED / UNVERIFIED until the user explicitly runs them after rebuilding.
 
-- mode entry;
-- local model status;
-- local chat surface;
-- no filesystem/Git/shell execution yet.
+Implemented DEV UI foundation includes mode entry and local chat surface, but no unrestricted execution permissions.
 
-These UI changes are **IMPLEMENTED BUT NOT YET LOCALLY VERIFIED** until the user pulls/builds/runs the desktop application and confirms behavior.
+---
 
 ## Verification boundary
 
-Do not promote the following to VERIFIED without local evidence:
+Already VERIFIED in this checkpoint:
 
-- new dropdown/UI rendering;
-- UI image upload -> backend -> vision response path;
-- persistent dataset registration;
+- project-local Ollama runtime/API;
+- `qwen3-vl:8b-instruct` text inference;
+- direct Vision inference;
+- Oracle schema connectivity through Python;
+- JSON-Part staging file + Oracle registration;
+- Oracle JSON-Part readback;
+- `LocalAIToolbox -> Oracle` exact Part lookup;
+- `Qwen -> json_part_get -> Oracle -> Qwen answer` end-to-end path;
+- `/api/local-tools/status` showing Oracle online and configured Git repositories.
+
+Still do not promote without local evidence:
+
+- all latest desktop UI interactions;
+- every Git tool action through Qwen;
+- pre-generation learned-asset selection runtime after the latest refactor;
+- persistent dataset registration/training/publish lifecycle;
 - LoRA training from UI;
 - DEV model runtime;
-- DEV filesystem/Git/shell/test/build execution.
+- DEV filesystem/Git-write/shell/test/build execution.
+
+The next exact work order is maintained in `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md`.
