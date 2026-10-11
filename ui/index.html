@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Local Image Generator</title>
+  <title>local-RAG</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app-shell">
-    <aside class="tool-rail" aria-label="ツール">
+  <main class="app-shell generation-mode" id="app-shell">
+    <aside class="tool-rail" aria-label="生成ツール">
       <button class="tool-button active" type="button" data-panel="settings-panel" title="詳細設定" aria-label="詳細設定">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.43 7.43 0 0 0 .05-.94 7.43 7.43 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.2 7.2 0 0 0-1.63-.94L14.38 2.8a.5.5 0 0 0-.49-.4h-3.84a.5.5 0 0 0-.49.4L9.2 5.32a7.2 7.2 0 0 0-1.63.94L5.18 5.3a.5.5 0 0 0-.61.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.43 7.43 0 0 0-.05.94c0 .32.02.63.05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .61.22l2.39-.96c.5.39 1.05.7 1.63.94l.36 2.52a.5.5 0 0 0 .49.4h3.84a.5.5 0 0 0 .49-.4l.36-2.52c.58-.24 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.25A3.25 3.25 0 1 1 12 8.75a3.25 3.25 0 0 1 0 6.5Z"/></svg>
       </button>
@@ -39,28 +39,109 @@
 
     <section class="workspace">
       <header class="workspace-header">
-        <div>
-          <h1>Local Image Generator</h1>
-          <p>自然言語またはJSONを入力して画像を生成します。</p>
+        <div class="mode-switcher">
+          <button id="mode-button" class="mode-button" type="button" aria-haspopup="menu" aria-expanded="false">
+            <span id="mode-button-title">画像生成</span>
+            <span class="mode-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div id="mode-menu" class="mode-menu hidden" role="menu">
+            <button class="mode-option selected" type="button" data-mode="generate" role="menuitem">
+              <span class="mode-option-copy"><strong>画像生成</strong><small>FREE / MEMORIELA 画像生成</small></span>
+              <span class="mode-check" aria-hidden="true">✓</span>
+            </button>
+            <button class="mode-option" type="button" data-mode="learn" role="menuitem">
+              <span class="mode-option-copy"><strong>学習</strong><small>ローカルAIで画像解析・学習準備</small></span>
+              <span class="mode-check" aria-hidden="true">✓</span>
+            </button>
+            <button class="mode-option" type="button" data-mode="dev" role="menuitem">
+              <span class="mode-option-copy"><strong>開発</strong><small>ローカルAIでコード解析・修正支援</small></span>
+              <span class="mode-check" aria-hidden="true">✓</span>
+            </button>
+          </div>
+        </div>
+        <div class="workspace-heading">
+          <h1 id="workspace-title">画像生成</h1>
+          <p id="workspace-description">自然言語またはJSONを入力して画像を生成します。</p>
         </div>
       </header>
 
-      <section class="result-panel" aria-label="生成画像">
-        <div class="result-header">
-          <span class="section-label">生成画像</span>
-          <div id="generation-status" class="status-line">未生成</div>
-        </div>
-        <div class="image-stage" id="image-stage">
-          <div id="image-placeholder" class="image-placeholder">生成された画像をここに表示します</div>
-          <img id="generated-image" class="generated-image" alt="Generated result" hidden>
-        </div>
-        <pre id="generation-meta" class="generation-meta"></pre>
-      </section>
+      <div id="generate-view" class="mode-view">
+        <section class="result-panel" aria-label="生成画像">
+          <div class="result-header">
+            <span class="section-label">生成画像</span>
+            <div id="generation-status" class="status-line">未生成</div>
+          </div>
+          <div class="image-stage" id="image-stage">
+            <div id="image-placeholder" class="image-placeholder">生成された画像をここに表示します</div>
+            <img id="generated-image" class="generated-image" alt="Generated result" hidden>
+          </div>
+          <pre id="generation-meta" class="generation-meta"></pre>
+        </section>
 
-      <form id="chat-form" class="composer-panel">
-        <textarea id="prompt" rows="4" placeholder="生成内容を入力してください。Enterで生成 / Shift+Enterで改行"></textarea>
-        <button id="generate-button" class="primary-action" type="submit">画像を生成</button>
-      </form>
+        <form id="chat-form" class="composer-panel">
+          <textarea id="prompt" rows="4" placeholder="生成内容を入力してください。Enterで生成 / Shift+Enterで改行"></textarea>
+          <button id="generate-button" class="primary-action" type="submit">画像を生成</button>
+        </form>
+      </div>
+
+      <div id="learn-view" class="mode-view hidden">
+        <section class="ai-panel">
+          <div class="ai-panel-header">
+            <div>
+              <span class="section-label">学習チャット</span>
+              <p>画像をローカルAIへ渡して、ポーズ・手・衣装・背景などを分離して確認します。</p>
+            </div>
+            <div id="learn-ai-status" class="status-pill">確認中...</div>
+          </div>
+
+          <div class="learn-grid">
+            <section class="upload-panel" aria-label="学習画像">
+              <div class="upload-header">
+                <span class="section-label">画像</span>
+                <button id="learn-image-remove" class="text-button" type="button" hidden>削除</button>
+              </div>
+              <label class="upload-drop" for="learn-image-input" id="learn-upload-drop">
+                <input id="learn-image-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                <span id="learn-upload-copy">画像を選択</span>
+                <small>PNG / JPEG / WebP</small>
+              </label>
+              <div id="learn-image-wrap" class="learn-image-wrap" hidden>
+                <img id="learn-image-preview" alt="Uploaded learning reference">
+              </div>
+              <div id="learn-image-name" class="file-name"></div>
+              <p class="scope-note">この段階では解析のみです。dataset登録・学習実行は自動では行いません。</p>
+            </section>
+
+            <section class="chat-panel" aria-label="ローカルAIチャット">
+              <div id="learn-chat-log" class="chat-log"></div>
+              <form id="learn-form" class="ai-composer">
+                <textarea id="learn-prompt" rows="3" placeholder="例: この画像のポーズと手の状態を分けて分析してください。"></textarea>
+                <button id="learn-send" class="primary-action compact" type="submit">送信</button>
+              </form>
+            </section>
+          </div>
+        </section>
+      </div>
+
+      <div id="dev-view" class="mode-view hidden">
+        <section class="ai-panel">
+          <div class="ai-panel-header">
+            <div>
+              <span class="section-label">開発チャット</span>
+              <p>GPTで作成した修正指示をローカルAIへ渡すための開発モードです。</p>
+            </div>
+            <div id="dev-ai-status" class="status-pill">確認中...</div>
+          </div>
+          <section class="chat-panel dev-chat-panel" aria-label="ローカル開発AIチャット">
+            <div id="dev-chat-log" class="chat-log"></div>
+            <form id="dev-form" class="ai-composer">
+              <textarea id="dev-prompt" rows="4" placeholder="コード修正指示を貼り付けてください。"></textarea>
+              <button id="dev-send" class="primary-action compact" type="submit">送信</button>
+            </form>
+            <p class="scope-note">現在は解析・計画のみです。ファイル変更、Git操作、テスト、ビルド実行はまだ接続していません。</p>
+          </section>
+        </section>
+      </div>
     </section>
   </main>
   <script src="app.js"></script>
