@@ -22,11 +22,12 @@ class LearnedAssetSelection:
     selector_model: str
     reason: str
     selector_role: str = "generate"
+    selector: str = "local-ai"
 
     def to_request_payload(self) -> dict[str, Any]:
         return {
             "registry_version": self.registry_version,
-            "selector": "local-ai",
+            "selector": self.selector,
             "selector_role": self.selector_role,
             "selector_model": self.selector_model,
             "selected_asset_ids": list(self.selected_asset_ids),
@@ -258,8 +259,8 @@ def _build_selector_prompt(
         for asset in assets
     ]
     return (
-        "This is a PRE-GENERATION learned-asset selection task. "
-        "Do not rewrite, expand, or reinterpret the user's generation request. "
+        "This is a PRE-GENERATION learned-asset selection task for MEMORIELA generation. "
+        "Do not rewrite, expand, or reinterpret the user's generation request beyond controlled asset selection. "
         "Choose only asset IDs whose learned concept is explicitly relevant to the request. "
         "Never invent an asset ID. If nothing applies, select none. "
         "Return JSON only, exactly in this shape: "
@@ -280,6 +281,20 @@ def select_assets_with_local_ai(
 ) -> LearnedAssetSelection:
     if not isinstance(user_text, str) or not user_text.strip():
         raise ValueError("user_text must be a non-empty string for learned asset selection")
+    if generation_domain not in SUPPORTED_DOMAINS:
+        raise ValueError(f"unsupported generation domain for learned asset selection: {generation_domain}")
+
+    # FREE is deliberately detached from Qwen/local-AI pre-generation interpretation.
+    # Keep an explicit trace object so request/manifests can show that the bypass was intentional.
+    if generation_domain == "free":
+        return LearnedAssetSelection(
+            registry_version=registry["registry_version"],
+            selected_asset_ids=(),
+            selector_model="none",
+            reason="FREE generation bypasses local AI by design",
+            selector_role="none",
+            selector="deterministic-free",
+        )
 
     assets = eligible_ai_assets(registry, generation_domain)
     prompt = _build_selector_prompt(user_text.strip(), generation_domain, assets)
