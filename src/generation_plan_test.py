@@ -134,11 +134,45 @@ def main() -> int:
     if "people, portrait" not in json_plan["prompt"]["negative"]:
         raise AssertionError("JSON negative prompt was not applied")
 
+    nested_json_text = json.dumps(
+        {
+            "prompt": {
+                "positive": [
+                    "cinematic city at night",
+                    {"text": "red sports car, wet street reflections"},
+                ],
+                "negative": ["portrait", "character standing"],
+            }
+        },
+        ensure_ascii=False,
+    )
+    nested_request = build_generation_request(
+        nested_json_text,
+        PROFILE,
+        source="cli",
+        dictionary_root=INTENT_ROOT,
+        seed_mode="FIXED",
+        seed=9,
+    )
+    if nested_request["target_mode"] != "generic_text2img":
+        raise AssertionError("nested internet-style JSON must default to generic text2img")
+    nested_plan_path = assert_plan_seed(nested_request, 9)
+    nested_plan = json.loads(nested_plan_path.read_text(encoding="utf-8"))
+    if nested_plan["workflow"].get("mode") != "text2img":
+        raise AssertionError("nested internet-style JSON must use text2img")
+    nested_positive = nested_plan["prompt"]["positive"]
+    if "cinematic city at night" not in nested_positive or "red sports car" not in nested_positive:
+        raise AssertionError("nested/list positive JSON content was not extracted")
+    nested_negative = nested_plan["prompt"]["negative"]
+    if "portrait" not in nested_negative:
+        raise AssertionError("nested/list negative JSON content was not extracted")
+
     print("[GENERATION_PLAN:OK]")
     print(f"request_id={request['request_id']}")
     print(f"yura_mode={plan['workflow'].get('mode')}")
     print(f"freeform_mode={freeform_plan['workflow'].get('mode')}")
     print(f"json_mode={json_plan['workflow'].get('mode')}")
+    print(f"nested_json_mode={nested_plan['workflow'].get('mode')}")
     print(f"fixed_seed={request['options']['seed']}")
     print(f"random_seed={random_seed}")
     return 0
