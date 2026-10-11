@@ -55,7 +55,7 @@ def _flatten_json_prompt(value: Any, prefix: str = "") -> list[str]:
     parts: list[str] = []
     if isinstance(value, dict):
         for key, child in value.items():
-            if key in {"negative", "profile_id", "seed", "seed_mode", "target_mode"}:
+            if key in {"negative", "negative_prompt", "profile_id", "seed", "seed_mode", "target_mode"}:
                 continue
             label = f"{prefix} {key}".strip()
             parts.extend(_flatten_json_prompt(child, label))
@@ -67,6 +67,39 @@ def _flatten_json_prompt(value: Any, prefix: str = "") -> list[str]:
         if text:
             parts.append(f"{prefix} {text}".strip())
     return parts
+
+
+def _value_to_prompt_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        parts = [_value_to_prompt_text(item) for item in value]
+        return ", ".join(part for part in parts if part)
+    if isinstance(value, dict):
+        parts = _flatten_json_prompt(value)
+        return ", ".join(parts).strip()
+    if value is None or isinstance(value, bool):
+        return ""
+    return str(value).strip()
+
+
+def _find_first_key_value(value: Any, keys: set[str]) -> Any:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key.casefold() in keys:
+                text = _value_to_prompt_text(child)
+                if text:
+                    return child
+        for child in value.values():
+            found = _find_first_key_value(child, keys)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_first_key_value(child, keys)
+            if found is not None:
+                return found
+    return None
 
 
 def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]:
@@ -89,24 +122,32 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]
             target_mode,
         )
 
+    positive_value = parsed_json.get("positive")
+    negative_value = parsed_json.get("negative")
     prompt_value = parsed_json.get("prompt")
-    positive = parsed_json.get("positive")
-    negative = parsed_json.get("negative")
 
-    if isinstance(prompt_value, dict):
-        if positive is None:
-            positive = prompt_value.get("positive")
-        if negative is None:
-            negative = prompt_value.get("negative")
-    elif isinstance(prompt_value, str) and positive is None:
-        positive = prompt_value
+    if positive_value is None and isinstance(prompt_value, dict):
+        positive_value = prompt_value.get("positive")
+    if negative_value is None and isinstance(prompt_value, dict):
+        negative_value = prompt_value.get("negative")
+    if positive_value is None and prompt_value is not None and not isinstance(prompt_value, dict):
+        positive_value = prompt_value
 
-    if positive is not None and not isinstance(positive, str):
-        raise ValueError("JSON positive/prompt must be a string when supplied")
-    if negative is not None and not isinstance(negative, str):
-        raise ValueError("JSON negative must be a string when supplied")
+    if positive_value is None:
+        positive_value = _find_first_key_value(
+            parsed_json,
+            {"positive", "positive_prompt", "prompt", "text"},
+        )
+    if negative_value is None:
+        negative_value = _find_first_key_value(
+            parsed_json,
+            {"negative", "negative_prompt"},
+        )
 
-    if not isinstance(positive, str) or not positive.strip():
+    positive = _value_to_prompt_text(positive_value)
+    negative = _value_to_prompt_text(negative_value)
+
+    if not positive:
         positive = ", ".join(_flatten_json_prompt(parsed_json)).strip()
     if not positive:
         raise ValueError("JSON input does not contain usable generation content")
@@ -116,10 +157,6 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]
         intent_source = positive
     intent = parse_intent(intent_source, INTENT_ROOT)
 
-    # Pasted JSON from the internet is treated as standalone generation input.
-    # It must never inherit the YURA master simply because a word inside the
-    # JSON happens to match a local character alias. YURA img2img can be
-    # requested explicitly with target_mode="yura_img2img".
     requested_mode = parsed_json.get("target_mode")
     if requested_mode is None:
         target_mode = "generic_text2img"
@@ -132,8 +169,8 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]
         intent,
         {
             "mode": "json",
-            "positive": positive.strip(),
-            "negative": negative.strip() if isinstance(negative, str) and negative.strip() else None,
+            "positive": positive,
+            "negative": negative or None,
             "json": parsed_json,
         },
         target_mode,
@@ -166,7 +203,6 @@ def build_generation_request(
             target_mode = "yura_img2img" if intent.get("character") == "YURA" else "generic_text2img"
         else:
             intent = parse_intent(prompt_input["positive"], dictionary_root)
-            # JSON remains generic unless target_mode was explicitly supplied.
             parsed_json = prompt_input.get("json")
             explicit_mode = parsed_json.get("target_mode") if isinstance(parsed_json, dict) else None
             target_mode = explicit_mode if explicit_mode in {"generic_text2img", "yura_img2img"} else "generic_text2img"
