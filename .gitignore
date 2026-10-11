@@ -21,6 +21,9 @@ learning/rendering/dataset/**/*.jpeg
 learning/rendering/dataset/**/*.webp
 learning/rendering/dataset/**/*.txt
 
+# Local training tools
+tools/sd-scripts/
+
 # Python
 __pycache__/
 *.py[cod]
