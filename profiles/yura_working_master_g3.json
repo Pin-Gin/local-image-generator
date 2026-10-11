@@ -38,7 +38,7 @@
     "filename_prefix": "MEMORIELA_G3_YURA"
   },
   "prompt": {
-    "positive": "2D anime illustration, preserve the referenced character identity, preserve the referenced body balance and hair identity, full body, front view, standing, calm neutral expression, plain white background",
-    "negative": "photorealistic, semi-realistic, 3d, cgi, pbr, warm brown eyes, malformed anatomy, extra limbs, blurry, low quality"
+    "positive": "preserve the referenced character identity, preserve the referenced body balance and hair identity, full body, front view, standing, calm neutral expression, plain white background",
+    "negative": "photorealistic, live-action, realistic human skin texture, glossy CGI, plastic-like CGI, PBR materials, warm brown eyes, malformed anatomy, extra limbs, blurry, low quality"
   }
 }
