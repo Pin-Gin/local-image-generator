@@ -47,6 +47,10 @@ def main() -> int:
             raise AssertionError(
                 f"intent mismatch key={key} expected={value} actual={request['intent'].get(key)}"
             )
+    if request.get("generation_domain") != "memoriela":
+        raise AssertionError("YURA natural-language request must route to MEMORIELA")
+    if request.get("target_mode") != "memoriela_character":
+        raise AssertionError("YURA request must use memoriela_character target mode")
 
     plan_path = assert_plan_seed(request, 12345)
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
@@ -61,7 +65,7 @@ def main() -> int:
         "full body, front view, standing",
         "calm neutral expression",
         "preserve the referenced hair identity and hairstyle",
-        "2D anime illustration",
+        "Matte Dimensional Anime",
         TEXT,
     )
     for fragment in required_fragments:
@@ -73,6 +77,8 @@ def main() -> int:
         raise AssertionError("generation plan missing request_context")
     if context.get("request_id") != request["request_id"]:
         raise AssertionError("generation plan request_id mismatch")
+    if context.get("generation_domain") != "memoriela":
+        raise AssertionError("MEMORIELA plan domain mismatch")
 
     random_request = build_generation_request(
         TEXT,
@@ -96,17 +102,21 @@ def main() -> int:
         seed=7,
     )
     if freeform_request["intent"]["status"] != "unparsed":
-        raise AssertionError("freeform test must remain unparsed")
+        raise AssertionError("FREE test must remain unparsed")
+    if freeform_request.get("generation_domain") != "free":
+        raise AssertionError("non-MEMORIELA text must route to FREE")
+    if freeform_request.get("target_mode") != "free_text2img":
+        raise AssertionError("FREE text must use free_text2img")
     freeform_plan_path = assert_plan_seed(freeform_request, 7)
     freeform_plan = json.loads(freeform_plan_path.read_text(encoding="utf-8"))
     if freeform_plan["workflow"].get("mode") != "text2img":
-        raise AssertionError("non-YURA freeform request must use text2img")
+        raise AssertionError("FREE request must use text2img")
     if freeform_plan["workflow"].get("template") != "workflows/sdxl_text2img_api.json":
-        raise AssertionError("non-YURA freeform request must use generic text2img template")
+        raise AssertionError("FREE request must use text2img template")
     if freeform_text not in freeform_plan["prompt"]["positive"]:
-        raise AssertionError("freeform text was not passed to effective positive prompt")
+        raise AssertionError("FREE text was not passed to effective positive prompt")
     if "preserve the referenced YURA character identity" in freeform_plan["prompt"]["positive"]:
-        raise AssertionError("generic text2img prompt must not contain YURA identity prompt")
+        raise AssertionError("FREE prompt must not contain YURA identity prompt")
 
     json_text = json.dumps(
         {
@@ -125,10 +135,12 @@ def main() -> int:
     )
     if json_request["prompt_input"]["mode"] != "json":
         raise AssertionError("JSON input mode was not detected")
+    if json_request.get("generation_domain") != "free":
+        raise AssertionError("JSON must default to FREE")
     json_plan_path = assert_plan_seed(json_request, 8)
     json_plan = json.loads(json_plan_path.read_text(encoding="utf-8"))
     if json_plan["workflow"].get("mode") != "text2img":
-        raise AssertionError("non-YURA JSON request must use text2img")
+        raise AssertionError("FREE JSON request must use text2img")
     if "red sports car driving through a neon city at night" not in json_plan["prompt"]["positive"]:
         raise AssertionError("JSON positive prompt was not applied")
     if "people, portrait" not in json_plan["prompt"]["negative"]:
@@ -154,8 +166,8 @@ def main() -> int:
         seed_mode="FIXED",
         seed=9,
     )
-    if nested_request["target_mode"] != "generic_text2img":
-        raise AssertionError("nested internet-style JSON must default to generic text2img")
+    if nested_request["target_mode"] != "free_text2img":
+        raise AssertionError("nested internet-style JSON must default to FREE text2img")
     nested_plan_path = assert_plan_seed(nested_request, 9)
     nested_plan = json.loads(nested_plan_path.read_text(encoding="utf-8"))
     if nested_plan["workflow"].get("mode") != "text2img":
@@ -167,10 +179,25 @@ def main() -> int:
     if "portrait" not in nested_negative:
         raise AssertionError("nested/list negative JSON content was not extracted")
 
+    kaname_request = build_generation_request(
+        "要が教室に立っている",
+        PROFILE,
+        source="cli",
+        dictionary_root=INTENT_ROOT,
+        seed_mode="FIXED",
+        seed=10,
+    )
+    if kaname_request["intent"].get("character") != "KANAME":
+        raise AssertionError("KANAME routing name was not detected")
+    if kaname_request.get("generation_domain") != "memoriela":
+        raise AssertionError("KANAME must route to MEMORIELA")
+    if kaname_request.get("target_mode") != "memoriela_character":
+        raise AssertionError("KANAME must not fall back to FREE")
+
     print("[GENERATION_PLAN:OK]")
     print(f"request_id={request['request_id']}")
-    print(f"yura_mode={plan['workflow'].get('mode')}")
-    print(f"freeform_mode={freeform_plan['workflow'].get('mode')}")
+    print(f"memoriela_mode={plan['workflow'].get('mode')}")
+    print(f"free_mode={freeform_plan['workflow'].get('mode')}")
     print(f"json_mode={json_plan['workflow'].get('mode')}")
     print(f"nested_json_mode={nested_plan['workflow'].get('mode')}")
     print(f"fixed_seed={request['options']['seed']}")
