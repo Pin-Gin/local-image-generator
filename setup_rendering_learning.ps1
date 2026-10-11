@@ -89,7 +89,15 @@ if (-not $SkipDependencyInstall) {
   Invoke-Checked $TrainerVenvPython "-m" "pip" "install" "torch==2.8.0" "torchvision==0.23.0" "torchaudio==2.8.0" "--index-url" $TorchIndex
 
   Write-Host "[SETUP] Installing sd-scripts requirements ..."
-  Invoke-Checked $TrainerVenvPython "-m" "pip" "install" "--upgrade" "-r" (Join-Path $TrainerRoot "requirements.txt")
+  Push-Location $TrainerRoot
+  try {
+    # requirements.txt contains "-e .". Running pip from the trainer root is required
+    # so the editable kohya_ss package resolves to tools\sd-scripts rather than this app repository.
+    Invoke-Checked $TrainerVenvPython "-m" "pip" "install" "--upgrade" "-r" "requirements.txt"
+  }
+  finally {
+    Pop-Location
+  }
 }
 
 Write-Host "[SETUP] Verifying CUDA visibility ..."
