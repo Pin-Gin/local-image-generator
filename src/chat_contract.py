@@ -21,6 +21,7 @@ ROOT = _resource_root()
 INTENT_ROOT = ROOT / "intent"
 MAX_SEED = (1 << 53) - 1
 SEED_MODES = {"PROFILE", "RANDOM", "FIXED"}
+MEMORIELA_CHARACTER_IDS = {"YURA", "KANAME", "SHIORI", "YAMATO", "MIO"}
 
 
 def list_profile_ids(profiles_root: Path) -> list[str]:
@@ -62,7 +63,15 @@ def _flatten_json_prompt(value: Any, prefix: str = "") -> list[str]:
     parts: list[str] = []
     if isinstance(value, dict):
         for key, child in value.items():
-            if key in {"negative", "negative_prompt", "profile_id", "seed", "seed_mode", "target_mode"}:
+            if key in {
+                "negative",
+                "negative_prompt",
+                "profile_id",
+                "seed",
+                "seed_mode",
+                "target_mode",
+                "generation_domain",
+            }:
                 continue
             label = f"{prefix} {key}".strip()
             parts.extend(_flatten_json_prompt(child, label))
@@ -109,7 +118,24 @@ def _find_first_key_value(value: Any, keys: set[str]) -> Any:
     return None
 
 
-def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]:
+def _route_for_intent(intent: dict[str, Any]) -> tuple[str, str]:
+    character = intent.get("character")
+    if isinstance(character, str) and character in MEMORIELA_CHARACTER_IDS:
+        return "memoriela", "memoriela_character"
+    return "free", "free_text2img"
+
+
+def _normalize_explicit_mode(value: Any) -> tuple[str, str] | None:
+    if value is None:
+        return None
+    if value in {"free_text2img", "generic_text2img"}:
+        return "free", "free_text2img"
+    if value in {"memoriela_character", "yura_img2img"}:
+        return "memoriela", "memoriela_character"
+    raise ValueError("JSON target_mode must be free_text2img or memoriela_character")
+
+
+def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str, str]:
     try:
         parsed_json = json.loads(text)
     except json.JSONDecodeError:
@@ -117,7 +143,7 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]
 
     if not isinstance(parsed_json, dict):
         intent = parse_intent(text, INTENT_ROOT)
-        target_mode = "yura_img2img" if intent.get("character") == "YURA" else "generic_text2img"
+        generation_domain, target_mode = _route_for_intent(intent)
         return (
             intent,
             {
@@ -126,6 +152,7 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]
                 "negative": None,
                 "json": None,
             },
+            generation_domain,
             target_mode,
         )
 
@@ -164,13 +191,12 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]
         intent_source = positive
     intent = parse_intent(intent_source, INTENT_ROOT)
 
-    requested_mode = parsed_json.get("target_mode")
-    if requested_mode is None:
-        target_mode = "generic_text2img"
-    elif requested_mode in {"generic_text2img", "yura_img2img"}:
-        target_mode = requested_mode
+    explicit_route = _normalize_explicit_mode(parsed_json.get("target_mode"))
+    if explicit_route is None:
+        # JSON is FREE by default. MEMORIELA JSON must opt in explicitly.
+        generation_domain, target_mode = "free", "free_text2img"
     else:
-        raise ValueError("JSON target_mode must be generic_text2img or yura_img2img")
+        generation_domain, target_mode = explicit_route
 
     return (
         intent,
@@ -180,6 +206,7 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str]
             "negative": negative or None,
             "json": parsed_json,
         },
+        generation_domain,
         target_mode,
     )
 
@@ -202,17 +229,21 @@ def build_generation_request(
         raise ValueError("source must be chat_ui, cli, or api")
 
     resolved_seed_mode, resolved_seed = _resolve_seed(seed_mode, seed)
-    intent, prompt_input, target_mode = _build_prompt_input(text)
+    intent, prompt_input, generation_domain, target_mode = _build_prompt_input(text)
 
     if dictionary_root is not None:
         if prompt_input["mode"] == "text":
             intent = parse_intent(text, dictionary_root)
-            target_mode = "yura_img2img" if intent.get("character") == "YURA" else "generic_text2img"
+            generation_domain, target_mode = _route_for_intent(intent)
         else:
             intent = parse_intent(prompt_input["positive"], dictionary_root)
             parsed_json = prompt_input.get("json")
             explicit_mode = parsed_json.get("target_mode") if isinstance(parsed_json, dict) else None
-            target_mode = explicit_mode if explicit_mode in {"generic_text2img", "yura_img2img"} else "generic_text2img"
+            explicit_route = _normalize_explicit_mode(explicit_mode)
+            if explicit_route is None:
+                generation_domain, target_mode = "free", "free_text2img"
+            else:
+                generation_domain, target_mode = explicit_route
 
     return {
         "schema_version": 1,
@@ -221,6 +252,7 @@ def build_generation_request(
         "source": source,
         "user_text": text,
         "profile_id": profile,
+        "generation_domain": generation_domain,
         "intent": intent,
         "prompt_input": prompt_input,
         "target_mode": target_mode,
