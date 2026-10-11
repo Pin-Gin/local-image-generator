@@ -23,16 +23,25 @@ def build_generation_manifest(
     workflow_cfg = profile.get("workflow", {})
     prompt_cfg = profile.get("prompt", {})
 
-    authority_files = []
-    for source_path, item in compiled.authority.files.items():
-        authority_files.append(
-            {
-                "path": source_path,
-                "git_blob_sha": item.git_blob_sha,
-                "sha256": item.sha256,
-                "size": item.size,
-            }
-        )
+    authority_payload: dict[str, Any] | None = None
+    if compiled.authority is not None:
+        authority_files = []
+        for source_path, item in compiled.authority.files.items():
+            authority_files.append(
+                {
+                    "path": source_path,
+                    "git_blob_sha": item.git_blob_sha,
+                    "sha256": item.sha256,
+                    "size": item.size,
+                }
+            )
+        authority_payload = {
+            "repository": compiled.authority.repository,
+            "branch": compiled.authority.branch,
+            "commit_sha": compiled.authority.commit_sha,
+            "expected_master_sha256": compiled.authority.expected_master_sha256,
+            "files": authority_files,
+        }
 
     manifest = {
         "schema_version": 1,
@@ -46,13 +55,7 @@ def build_generation_manifest(
             "character": profile.get("character"),
             "authority_mode": profile.get("authority_mode"),
         },
-        "authority": {
-            "repository": compiled.authority.repository,
-            "branch": compiled.authority.branch,
-            "commit_sha": compiled.authority.commit_sha,
-            "expected_master_sha256": compiled.authority.expected_master_sha256,
-            "files": authority_files,
-        },
+        "authority": authority_payload,
         "workflow": {
             "template_path": str(compiled.workflow_template_path),
             "template_sha256": compiled.workflow_template_sha256,
