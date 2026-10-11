@@ -24,6 +24,8 @@ python -m PyInstaller `
   --add-data "intent;intent" `
   --add-data "schemas;schemas" `
   --add-data "workflows;workflows" `
+  --add-data "shared;shared" `
+  --add-data "domains;domains" `
   --hidden-import webview.platforms.edgechromium `
   src\desktop_app.py
 
