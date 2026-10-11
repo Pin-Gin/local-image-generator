@@ -1,6 +1,16 @@
-# MEMORIELA Local Image Generator — Production Gates
+# local-RAG — Production Gates
 
-Status: **ACTIVE / G0–G5 VERIFIED / UI TRACK STARTED**
+Status: **ACTIVE / G0–G5 HISTORICALLY VERIFIED / CURRENT ARCHITECTURE EVOLVING**
+
+Current continuation source:
+
+```text
+docs/handoff/LOCAL_RAG_HANDOFF.md
+```
+
+The G0–G5 entries below are preserved as historical verification evidence. Some names/paths recorded in those runs predate the current `local-RAG` cleanup. In particular, the G5 run used `database/memoriela_local.db`; the **current configured database path is `database/local_rag.db`**. Do not reinterpret historical verification metadata as current configuration.
+
+The newer FREE-deterministic / MEMORIELA-AI-planned architecture is documented in `SPEC.md` and the consolidated handoff. Existing gate PASS evidence is not automatic verification of newly refactored paths.
 
 ## Gate principle
 
@@ -48,7 +58,7 @@ PASS requires local execution proving:
 
 ## G3 — Authority / Profile Compilation
 
-**Status: PASS — locally verified**
+**Status: PASS — locally verified for the recorded historical path**
 
 PASS requires:
 
@@ -68,11 +78,11 @@ Verified G3 authority state:
 - working Master SHA-256: `81ac67b8395d5e3b49abcd75db77d420aa9cab94bcff4b582eaaed13bfeaf94d`
 - compiled workflow SHA-256: `c879a1e46f62c3be987def3cb227dd24c968ddded1501685bacb6d9da41f6cdc`
 
-This G3 PASS verifies the current working-Master compilation path only. It does not promote YURA to final Production Authority and does not override the authority lifecycle recorded in MEMORIELA.
+This G3 PASS verifies the recorded working-Master compilation path only. It does not promote YURA to final Production Authority and does not override the authority lifecycle recorded in MEMORIELA.
 
 ## G4 — Manifest and Output Integrity
 
-**Status: PASS — locally verified**
+**Status: PASS — locally verified for the recorded historical path**
 
 PASS requires:
 
@@ -95,7 +105,7 @@ The generated image and its `manifest.json` were stored under the same generatio
 
 ## G5 — SQLite History / Lookup
 
-**Status: PASS — locally verified**
+**Status: PASS — locally verified for the recorded historical path**
 
 PASS requires:
 
@@ -106,7 +116,8 @@ PASS requires:
 
 Verified G5 run:
 
-- database: `database/memoriela_local.db`
+- historical database used: `database/memoriela_local.db`
+- current configured database: `database/local_rag.db`
 - generation id: `20261011T004449955189Z`
 - manifest SHA-256: `2b6888063b9f4685124b7847402aada46275aa653dfae4fd05a98cbc3a87043c`
 - output SHA-256: `e78d3f41078fa572d1e179bc35d546bbf9a5201996c155d95d20dc9ea17f9f26`
@@ -116,49 +127,55 @@ Verified G5 run:
 - restore to `unreviewed`: PASS
 - history lookup: PASS
 
-The G5 verification modified only the local SQLite history state and did not write back to MEMORIELA canon.
+The G5 verification modified only local SQLite history state and did not write back to MEMORIELA canon.
+
+A future refactor that materially changes the current history path should receive its own focused verification instead of inheriting this PASS blindly.
 
 ## G6 — Identity Stability
 
 **Status: DEFERRED BY AUTHOR DECISION**
 
-Current output similarity is sufficient for this stage. Stronger face/touch/identity constraints are intentionally deferred until those specifications are explicitly added.
+Current output similarity was sufficient for that stage. Stronger face/touch/identity constraints remain deferred until explicitly resumed.
 
-This gate is not marked PASS and may be resumed later.
+This gate is not marked PASS.
 
-## G7 — UI / Chat Integration
+## G7 — Desktop UI / Generation Integration
 
-**Status: IN PROGRESS**
+**Status: IN PROGRESS / ARCHITECTURE CHANGED SINCE INITIAL SLICE**
 
-PASS requires the user-facing UI to invoke the production core without bypassing authority/profile/manifest rules.
+The original G7 slice established UI/chat/request foundations. The current target now additionally requires:
 
-Current first slice:
+```text
+FREE
+  -> deterministic generation without Qwen pre-generation selection
 
-- local chat-style UI shell
-- profile selection
-- free-text user input
-- Generation Request JSON creation
-- explicit JSON contract/schema
+MEMORIELA
+  -> AI planning allowed, validated structured plan
 
-The first slice does not yet submit image generation from the UI.
+LEARN
+  -> AI analysis / JSON Part candidates with explicit acceptance
+```
+
+PASS for the current architecture requires the desktop UI to invoke the production generation core without bypassing the current domain/manifest rules and without reintroducing mandatory Qwen processing into FREE.
 
 ## G8 — Desktop Packaging
 
 PASS requires:
 
-- Windows application can be launched from the packaged desktop build
-- required backend processes are started or connected correctly
-- generation can be initiated from the desktop application
-- result can be viewed/retrieved from the application
-- packaging does not require manual source-code execution for normal use
+- Windows application launches from the packaged desktop build;
+- required backend processes are started or connected correctly;
+- generation can be initiated from the desktop application;
+- result can be viewed/retrieved from the application;
+- packaging does not require manual source-code execution for normal use.
 
-## Current status
+## Current gate summary
 
 - G0 Repository Foundation: PASS
 - G1 Local Core Bootstrap: PASS
 - G2 ComfyUI Connectivity: PASS
-- G3 Authority / Profile Compilation: PASS
-- G4 Manifest and Output Integrity: PASS
-- G5 SQLite History / Lookup: PASS
+- G3 Authority / Profile Compilation: PASS for recorded path
+- G4 Manifest and Output Integrity: PASS for recorded path
+- G5 SQLite History / Lookup: PASS for recorded path
 - G6 Identity Stability: DEFERRED
-- G7 UI / Chat Integration: IN PROGRESS
+- G7 Desktop UI / Generation Integration: IN PROGRESS under new architecture
+- G8 Desktop Packaging: pending full current-architecture verification
