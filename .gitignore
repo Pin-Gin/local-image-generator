@@ -1,0 +1,30 @@
+# Runtime-generated data
+cache/*
+!cache/.gitkeep
+outputs/*
+!outputs/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Local database files
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Large model/runtime files
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
