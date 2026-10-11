@@ -6,16 +6,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from intent_parser import parse_intent
 
-DEFAULT_INTENT_KEYS = (
-    "character",
-    "outfit",
-    "background",
-    "pose",
-    "expression",
-    "hair",
-    "rendering",
-)
+
+ROOT = Path(__file__).resolve().parent.parent
+INTENT_ROOT = ROOT / "intent"
 
 
 def list_profile_ids(profiles_root: Path) -> list[str]:
@@ -41,9 +36,7 @@ def build_generation_request(user_text: str, profile_id: str, source: str = "cha
     if source not in {"chat_ui", "cli", "api"}:
         raise ValueError("source must be chat_ui, cli, or api")
 
-    intent: dict[str, Any] = {"status": "unparsed"}
-    for key in DEFAULT_INTENT_KEYS:
-        intent[key] = None
+    intent = parse_intent(text, INTENT_ROOT)
 
     return {
         "schema_version": 1,
