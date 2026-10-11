@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -40,7 +41,7 @@ def connect_database(path: Path) -> sqlite3.Connection:
 
 
 def initialize_database(path: Path) -> None:
-    with connect_database(path) as connection:
+    with closing(connect_database(path)) as connection:
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS generations (
@@ -68,6 +69,7 @@ def initialize_database(path: Path) -> None:
                 ON generations(qa_status);
             """
         )
+        connection.commit()
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -142,7 +144,7 @@ def import_manifest(database_path: Path, manifest_path: Path) -> GenerationRecor
     seed = generation.get("seed") if isinstance(generation.get("seed"), int) else None
 
     initialize_database(database_path)
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         connection.execute(
             """
             INSERT INTO generations (
@@ -169,6 +171,7 @@ def import_manifest(database_path: Path, manifest_path: Path) -> GenerationRecor
                 authority_commit, compiled_sha, seed, qa_status,
             ),
         )
+        connection.commit()
 
     record = get_generation(database_path, generation_id)
     if record is None:
@@ -195,7 +198,7 @@ def _row_to_record(row: sqlite3.Row) -> GenerationRecord:
 
 def get_generation(database_path: Path, generation_id: str) -> GenerationRecord | None:
     initialize_database(database_path)
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         row = connection.execute(
             "SELECT * FROM generations WHERE generation_id = ?",
             (generation_id,),
@@ -207,7 +210,7 @@ def list_generations(database_path: Path, limit: int = 20) -> list[GenerationRec
     if limit <= 0:
         raise ValueError("limit must be positive")
     initialize_database(database_path)
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         rows = connection.execute(
             "SELECT * FROM generations ORDER BY created_at_utc DESC LIMIT ?",
             (limit,),
@@ -219,7 +222,7 @@ def update_qa_status(database_path: Path, generation_id: str, qa_status: str) ->
     if qa_status not in QA_STATUSES:
         raise ValueError(f"qa_status must be one of: {', '.join(QA_STATUSES)}")
     initialize_database(database_path)
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         cursor = connection.execute(
             """
             UPDATE generations
@@ -230,6 +233,7 @@ def update_qa_status(database_path: Path, generation_id: str, qa_status: str) ->
         )
         if cursor.rowcount != 1:
             raise KeyError(f"generation_id not found: {generation_id}")
+        connection.commit()
 
     record = get_generation(database_path, generation_id)
     if record is None:
