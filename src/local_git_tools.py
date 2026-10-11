@@ -27,6 +27,10 @@ class LocalGitTools:
         self.allowed_actions = set(git_cfg.get("allowed_actions") or [])
         self.local_env = load_env_file(resolve_env_file(resource_root))
 
+    def _require_action(self, action: str) -> None:
+        if action not in self.allowed_actions:
+            raise PermissionError(f"Git action is not allowed by config: {action}")
+
     def _candidate_project_roots(self) -> list[Path]:
         candidates: list[Path] = []
         cwd = Path.cwd().resolve()
@@ -103,10 +107,12 @@ class LocalGitTools:
         return completed.stdout
 
     def status(self, repo_id: str) -> dict[str, Any]:
+        self._require_action("status")
         output = self._run(repo_id, ["status", "--short", "--branch"])
         return {"repo_id": repo_id, "status": output.rstrip()}
 
     def log(self, repo_id: str, *, max_count: int = 10) -> dict[str, Any]:
+        self._require_action("log")
         count = max(1, min(int(max_count), 50))
         output = self._run(
             repo_id,
@@ -120,13 +126,22 @@ class LocalGitTools:
         return {"repo_id": repo_id, "commits": rows}
 
     def diff(self, repo_id: str, *, ref: str = "HEAD", path: str | None = None) -> dict[str, Any]:
+        self._require_action("diff")
         args = ["diff", "--no-ext-diff", ref]
         if path:
             args.extend(["--", path])
         output = self._run(repo_id, args, timeout=45)
-        return {"repo_id": repo_id, "ref": ref, "path": path, "diff": output}
+        limit = 60_000
+        return {
+            "repo_id": repo_id,
+            "ref": ref,
+            "path": path,
+            "diff": output[:limit],
+            "truncated": len(output) > limit,
+        }
 
     def list_files(self, repo_id: str, *, path_prefix: str = "") -> dict[str, Any]:
+        self._require_action("list_files")
         args = ["ls-files"]
         if path_prefix:
             args.extend(["--", path_prefix])
@@ -134,16 +149,45 @@ class LocalGitTools:
         files = [line for line in output.splitlines() if line.strip()]
         return {"repo_id": repo_id, "files": files[:2000], "truncated": len(files) > 2000}
 
-    def read_file(self, repo_id: str, path: str, *, ref: str = "HEAD") -> dict[str, Any]:
+    def read_file(
+        self,
+        repo_id: str,
+        path: str,
+        *,
+        ref: str = "HEAD",
+        start_line: int = 1,
+        end_line: int | None = None,
+    ) -> dict[str, Any]:
+        self._require_action("read_file")
         clean = path.replace("\\", "/").strip("/")
         if not clean or clean.startswith(".git/") or "/../" in f"/{clean}/" or clean == ".git":
             raise ValueError("invalid Git file path")
         output = self._run(repo_id, ["show", f"{ref}:{clean}"], timeout=30)
-        if len(output) > 250_000:
-            raise ValueError("Git file exceeds local AI read limit (250 KB)")
-        return {"repo_id": repo_id, "ref": ref, "path": clean, "content": output}
+        if len(output) > 2_000_000:
+            raise ValueError("Git file exceeds hard read limit (2 MB)")
+
+        lines = output.splitlines()
+        total_lines = len(lines)
+        start = max(1, int(start_line))
+        if end_line is None:
+            end = min(total_lines, start + 399)
+        else:
+            end = min(total_lines, max(start, int(end_line)))
+        if end - start + 1 > 600:
+            raise ValueError("Git read range must be 600 lines or fewer")
+        content = "\n".join(lines[start - 1 : end])
+        return {
+            "repo_id": repo_id,
+            "ref": ref,
+            "path": clean,
+            "start_line": start,
+            "end_line": end,
+            "total_lines": total_lines,
+            "content": content,
+        }
 
     def search(self, repo_id: str, query: str, *, max_results: int = 50) -> dict[str, Any]:
+        self._require_action("search")
         text = query.strip()
         if not text:
             raise ValueError("Git search query must not be empty")
