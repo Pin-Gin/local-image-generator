@@ -23,7 +23,7 @@ def build_generation_manifest(
     workflow_cfg = profile.get("workflow", {})
     prompt_cfg = profile.get("prompt", {})
 
-    authority_payload: dict[str, Any] | None = None
+    authority_payload: dict[str, Any] = {}
     if compiled.authority is not None:
         authority_files = []
         for source_path, item in compiled.authority.files.items():
