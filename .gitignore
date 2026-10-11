@@ -23,6 +23,8 @@ learning/rendering/dataset/**/*.txt
 
 # Local training tools
 tools/sd-scripts/
+tools/python312/
+tools/_downloads/
 
 # Python
 __pycache__/
