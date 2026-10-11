@@ -47,22 +47,43 @@ class LocalAIClient:
                 raise ValueError("local AI role names must be non-empty strings")
             if not isinstance(role_cfg, dict):
                 raise ValueError(f"local AI role {role_name} must be an object")
+
             model = role_cfg.get("model")
             vision = role_cfg.get("vision")
             think = role_cfg.get("think", False)
+            num_ctx = role_cfg.get("num_ctx", 4096)
+            num_predict = role_cfg.get("num_predict", 1024)
+            max_history_messages = role_cfg.get("max_history_messages", 6)
             system_prompt = role_cfg.get("system_prompt")
+
             if not isinstance(model, str) or not model.strip():
                 raise ValueError(f"local AI role {role_name}.model must be a non-empty string")
             if not isinstance(vision, bool):
                 raise ValueError(f"local AI role {role_name}.vision must be boolean")
             if not isinstance(think, bool):
                 raise ValueError(f"local AI role {role_name}.think must be boolean")
+            if not isinstance(num_ctx, int) or isinstance(num_ctx, bool) or num_ctx < 4096:
+                raise ValueError(f"local AI role {role_name}.num_ctx must be an integer >= 4096")
+            if not isinstance(num_predict, int) or isinstance(num_predict, bool) or num_predict <= 0:
+                raise ValueError(f"local AI role {role_name}.num_predict must be a positive integer")
+            if (
+                not isinstance(max_history_messages, int)
+                or isinstance(max_history_messages, bool)
+                or max_history_messages < 0
+            ):
+                raise ValueError(
+                    f"local AI role {role_name}.max_history_messages must be a non-negative integer"
+                )
             if not isinstance(system_prompt, str):
                 raise ValueError(f"local AI role {role_name}.system_prompt must be a string")
+
             normalized_roles[role_name] = {
                 "model": model.strip(),
                 "vision": vision,
                 "think": think,
+                "num_ctx": num_ctx,
+                "num_predict": num_predict,
+                "max_history_messages": max_history_messages,
                 "system_prompt": system_prompt.strip(),
             }
 
@@ -134,6 +155,9 @@ class LocalAIClient:
                     "model": role_cfg["model"],
                     "vision": role_cfg["vision"],
                     "think": role_cfg["think"],
+                    "num_ctx": role_cfg["num_ctx"],
+                    "num_predict": role_cfg["num_predict"],
+                    "max_history_messages": role_cfg["max_history_messages"],
                     "installed": role_cfg["model"] in installed,
                 }
                 for role_name, role_cfg in self.roles.items()
@@ -168,6 +192,8 @@ class LocalAIClient:
         if history is not None:
             if not isinstance(history, list):
                 raise ValueError("local AI history must be an array")
+
+            validated_history: list[dict[str, str]] = []
             for index, item in enumerate(history):
                 if not isinstance(item, dict):
                     raise ValueError(f"local AI history[{index}] must be an object")
@@ -177,7 +203,11 @@ class LocalAIClient:
                     raise ValueError(f"local AI history[{index}].role is invalid")
                 if not isinstance(history_content, str):
                     raise ValueError(f"local AI history[{index}].content must be a string")
-                messages.append({"role": history_role, "content": history_content})
+                validated_history.append({"role": history_role, "content": history_content})
+
+            history_limit = role_cfg["max_history_messages"]
+            if history_limit > 0:
+                messages.extend(validated_history[-history_limit:])
 
         user_message: dict[str, Any] = {"role": "user", "content": message.strip()}
         if images:
@@ -193,6 +223,10 @@ class LocalAIClient:
                 "think": role_cfg["think"],
                 "stream": False,
                 "keep_alive": self.keep_alive,
+                "options": {
+                    "num_ctx": role_cfg["num_ctx"],
+                    "num_predict": role_cfg["num_predict"],
+                },
             },
         )
 
