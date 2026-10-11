@@ -12,6 +12,27 @@ function addMessage(text, role) {
   messages.scrollTop = messages.scrollHeight;
 }
 
+function describeIntent(intent) {
+  if (!intent || typeof intent !== 'object') {
+    return 'Generation Request JSONを作成しました。まだ画像生成には接続していません。';
+  }
+
+  if (intent.status === 'needs_confirmation') {
+    return '入力に複数候補があるため確認が必要です。JSONを確認してください。まだ画像生成には接続していません。';
+  }
+
+  if (intent.status === 'unparsed') {
+    return 'Generation Request JSONを作成しましたが、登録済み辞書に一致する条件はありませんでした。まだ画像生成には接続していません。';
+  }
+
+  const resolved = [];
+  for (const key of ['character', 'outfit', 'background', 'pose', 'expression', 'hair', 'rendering']) {
+    if (intent[key]) resolved.push(`${key}=${intent[key]}`);
+  }
+  const suffix = resolved.length ? ` (${resolved.join(', ')})` : '';
+  return `入力内容を内部JSONへ正規化しました${suffix}。まだ画像生成には接続していません。`;
+}
+
 async function loadProfiles() {
   const response = await fetch('/api/profiles');
   if (!response.ok) throw new Error(`profiles HTTP ${response.status}`);
@@ -44,7 +65,7 @@ form.addEventListener('submit', async (event) => {
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
 
     jsonPreview.textContent = JSON.stringify(payload.request, null, 2);
-    addMessage('Generation Request JSONを作成しました。まだ画像生成には接続していません。', 'assistant');
+    addMessage(describeIntent(payload.request.intent), 'assistant');
   } catch (error) {
     addMessage(`エラー: ${error.message}`, 'system');
   }
