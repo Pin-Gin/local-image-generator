@@ -73,15 +73,23 @@ $EnvFile = Join-Path $RepoRoot ".env.local-ai"
 if (-not (Test-Path $EnvFile)) {
   $systemPassword = ([guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")).Substring(0, 32)
   $appPassword = ([guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")).Substring(0, 32)
+  $memorielaRoot = ""
+  $defaultMemoriela = Join-Path (Split-Path -Parent $RepoRoot) "MEMORIELA"
+  if ((Test-Path $defaultMemoriela) -and (Test-Path (Join-Path $defaultMemoriela ".git"))) {
+    $memorielaRoot = $defaultMemoriela
+  }
   $content = @"
 LOCALRAG_ORACLE_DSN=127.0.0.1:1521/FREEPDB1
 LOCALRAG_ORACLE_USER=LOCALRAG_KB1
 LOCALRAG_ORACLE_PASSWORD=$appPassword
 LOCALRAG_ORACLE_SYSTEM_PASSWORD=$systemPassword
-LOCALRAG_MEMORIELA_ROOT=
+LOCALRAG_MEMORIELA_ROOT=$memorielaRoot
 "@
   [System.IO.File]::WriteAllText($EnvFile, $content, (New-Object System.Text.UTF8Encoding($false)))
   Write-Host "[ENV:CREATED] .env.local-ai"
+  if ($memorielaRoot) {
+    Write-Host "[GIT:OK] MEMORIELA=$memorielaRoot"
+  }
 } else {
   Write-Host "[ENV:OK] .env.local-ai already exists"
 }
@@ -97,4 +105,4 @@ if ($StartOracle) {
 }
 
 Write-Host "[LOCAL-TOOLS:SETUP:OK]"
-Write-Host "[NEXT] Optional MEMORIELA Git access: set LOCALRAG_MEMORIELA_ROOT in .env.local-ai or the environment."
+Write-Host "[NEXT] If MEMORIELA was not auto-detected, set LOCALRAG_MEMORIELA_ROOT in .env.local-ai."
