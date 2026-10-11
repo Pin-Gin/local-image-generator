@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import traceback
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -124,44 +125,50 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             request_payload = self._build_request_from_body(payload)
-        except ValueError as exc:
-            self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
-            return
 
-        if self.path == "/api/chat/request":
-            self._send_json(HTTPStatus.OK, {"request": request_payload})
-            return
+            if self.path == "/api/chat/request":
+                self._send_json(HTTPStatus.OK, {"request": request_payload})
+                return
 
-        try:
             config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
             if not isinstance(config, dict):
                 raise ValueError("application config root must be an object")
+
             result = run_chat_generation(ROOT, request_payload, config)
             relative_output = result.output_path.relative_to(OUTPUTS_ROOT).as_posix()
-        except (OSError, KeyError, json.JSONDecodeError, ValueError, RuntimeError) as exc:
-            self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
-            return
 
-        request_options = request_payload.get("options", {})
-        self._send_json(
-            HTTPStatus.OK,
-            {
-                "request": request_payload,
-                "generation": {
-                    "generation_id": result.generation_id,
-                    "prompt_id": result.prompt_id,
-                    "generation_mode": result.generation_mode,
-                    "seed_mode": request_options.get("seed_mode"),
-                    "seed": request_options.get("seed"),
-                    "output_url": f"/generated/{relative_output}",
-                    "output_sha256": result.output_sha256,
-                    "manifest_path": str(result.manifest_path),
-                    "manifest_sha256": result.manifest_sha256,
-                    "generation_plan_path": str(result.generation_plan_path),
-                    "database_path": str(result.database_path),
+            request_options = request_payload.get("options", {})
+            self._send_json(
+                HTTPStatus.OK,
+                {
+                    "request": request_payload,
+                    "generation": {
+                        "generation_id": result.generation_id,
+                        "prompt_id": result.prompt_id,
+                        "seed_mode": request_options.get("seed_mode"),
+                        "seed": request_options.get("seed"),
+                        "output_url": f"/generated/{relative_output}",
+                        "output_sha256": result.output_sha256,
+                        "manifest_path": str(result.manifest_path),
+                        "manifest_sha256": result.manifest_sha256,
+                        "generation_plan_path": str(result.generation_plan_path),
+                        "database_path": str(result.database_path),
+                    },
                 },
-            },
-        )
+            )
+        except Exception as exc:
+            detail = traceback.format_exc(limit=8)
+            try:
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {
+                        "error": str(exc) or exc.__class__.__name__,
+                        "error_type": exc.__class__.__name__,
+                        "detail": detail,
+                    },
+                )
+            except Exception:
+                pass
 
 
 def main() -> int:
