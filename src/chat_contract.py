@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 import sys
 import uuid
@@ -118,7 +119,50 @@ def _find_first_key_value(value: Any, keys: set[str]) -> Any:
     return None
 
 
+def _detect_memoriela_characters(text: str) -> list[str]:
+    detected: set[str] = set()
+    folded = text.casefold()
+
+    if "久遠ゆら" in text or "ゆら" in text or re.search(r"\byura\b", folded):
+        detected.add("YURA")
+
+    if "水瀬要" in text or any(value in text for value in ("要くん", "要君", "要さん", "要ちゃん")):
+        detected.add("KANAME")
+    elif re.search(r"(?<![一-龯々ぁ-ゖァ-ヶA-Za-z0-9])要(?=$|[、。！？!?\sはがをにとものへで])", text):
+        detected.add("KANAME")
+    elif re.search(r"\bkaname\b", folded):
+        detected.add("KANAME")
+
+    if "栞" in text or re.search(r"\bshiori\b", folded):
+        detected.add("SHIORI")
+    if "大和" in text or re.search(r"\byamato\b", folded):
+        detected.add("YAMATO")
+    if "美緒" in text or re.search(r"\bmio\b", folded):
+        detected.add("MIO")
+
+    order = ["YURA", "KANAME", "SHIORI", "YAMATO", "MIO"]
+    return [item for item in order if item in detected]
+
+
+def _enrich_character_intent(intent: dict[str, Any], source_text: str) -> dict[str, Any]:
+    characters = _detect_memoriela_characters(source_text)
+    intent["characters"] = characters
+    if len(characters) == 1:
+        intent["character"] = characters[0]
+        if intent.get("status") == "unparsed":
+            intent["status"] = "parsed"
+    elif len(characters) > 1:
+        intent["character"] = None
+        intent["status"] = "needs_confirmation"
+    return intent
+
+
 def _route_for_intent(intent: dict[str, Any]) -> tuple[str, str]:
+    characters = intent.get("characters")
+    if isinstance(characters, list) and any(
+        isinstance(value, str) and value in MEMORIELA_CHARACTER_IDS for value in characters
+    ):
+        return "memoriela", "memoriela_character"
     character = intent.get("character")
     if isinstance(character, str) and character in MEMORIELA_CHARACTER_IDS:
         return "memoriela", "memoriela_character"
@@ -142,7 +186,7 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str,
         parsed_json = None
 
     if not isinstance(parsed_json, dict):
-        intent = parse_intent(text, INTENT_ROOT)
+        intent = _enrich_character_intent(parse_intent(text, INTENT_ROOT), text)
         generation_domain, target_mode = _route_for_intent(intent)
         return (
             intent,
@@ -189,7 +233,7 @@ def _build_prompt_input(text: str) -> tuple[dict[str, Any], dict[str, Any], str,
     intent_source = parsed_json.get("text")
     if not isinstance(intent_source, str) or not intent_source.strip():
         intent_source = positive
-    intent = parse_intent(intent_source, INTENT_ROOT)
+    intent = _enrich_character_intent(parse_intent(intent_source, INTENT_ROOT), intent_source)
 
     explicit_route = _normalize_explicit_mode(parsed_json.get("target_mode"))
     if explicit_route is None:
@@ -233,10 +277,11 @@ def build_generation_request(
 
     if dictionary_root is not None:
         if prompt_input["mode"] == "text":
-            intent = parse_intent(text, dictionary_root)
+            intent = _enrich_character_intent(parse_intent(text, dictionary_root), text)
             generation_domain, target_mode = _route_for_intent(intent)
         else:
-            intent = parse_intent(prompt_input["positive"], dictionary_root)
+            positive_text = prompt_input["positive"]
+            intent = _enrich_character_intent(parse_intent(positive_text, dictionary_root), positive_text)
             parsed_json = prompt_input.get("json")
             explicit_mode = parsed_json.get("target_mode") if isinstance(parsed_json, dict) else None
             explicit_route = _normalize_explicit_mode(explicit_mode)
