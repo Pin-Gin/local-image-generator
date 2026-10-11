@@ -48,12 +48,29 @@ def main() -> int:
         },
     )
     assert_case(
+        "ゆらを白背景で正面立ち、服装と髪型はマスターと同じ、落ち着いた表情、2Dアニメ調で",
+        {
+            "status": "parsed",
+            "character": "YURA",
+            "outfit": "MASTER_REFERENCE",
+            "background": "WHITE",
+            "pose": "FRONT_STANDING",
+            "expression": "CALM_NEUTRAL",
+            "hair": "MASTER_REFERENCE",
+            "rendering": "ANIME_2D",
+        },
+    )
+    assert_case(
         "まだ辞書にない条件だけを指定する",
         {
             "status": "unparsed",
             "character": None,
+            "outfit": None,
             "background": None,
             "pose": None,
+            "expression": None,
+            "hair": None,
+            "rendering": None,
         },
     )
     print("[INTENT:OK]")
