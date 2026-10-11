@@ -42,6 +42,11 @@ def main() -> int:
         help="Optionally persist a QA status for the imported generation.",
     )
     parser.add_argument(
+        "--verify-status-cycle",
+        action="store_true",
+        help="Verify accepted/rejected persistence, then restore the original QA status.",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=10,
@@ -72,6 +77,23 @@ def main() -> int:
         print(f"output={record.output_path}")
         print(f"output_sha256={record.output_sha256}")
         print(f"qa_status={record.qa_status}")
+
+        if args.verify_status_cycle:
+            original_status = record.qa_status
+            accepted = update_qa_status(database_path, record.generation_id, "accepted")
+            if accepted.qa_status != "accepted":
+                raise RuntimeError("accepted QA status did not persist")
+            print("[G5:STATUS:ACCEPTED:OK]")
+
+            rejected = update_qa_status(database_path, record.generation_id, "rejected")
+            if rejected.qa_status != "rejected":
+                raise RuntimeError("rejected QA status did not persist")
+            print("[G5:STATUS:REJECTED:OK]")
+
+            record = update_qa_status(database_path, record.generation_id, original_status)
+            if record.qa_status != original_status:
+                raise RuntimeError("original QA status was not restored")
+            print(f"[G5:STATUS:RESTORE:OK] qa_status={record.qa_status}")
 
         if args.set_status is not None:
             record = update_qa_status(database_path, record.generation_id, args.set_status)
