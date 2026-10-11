@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from oracle_knowledge_store import load_env_file, resolve_env_file
+
 
 class LocalGitTools:
     def __init__(self, resource_root: Path, config_path: Path) -> None:
@@ -23,6 +25,7 @@ class LocalGitTools:
         self.resource_root = resource_root
         self.repo_defs = repositories
         self.allowed_actions = set(git_cfg.get("allowed_actions") or [])
+        self.local_env = load_env_file(resolve_env_file(resource_root))
 
     def _candidate_project_roots(self) -> list[Path]:
         candidates: list[Path] = []
@@ -59,7 +62,7 @@ class LocalGitTools:
             optional = bool(item.get("optional"))
 
             if isinstance(path_env, str) and path_env:
-                env_value = os.getenv(path_env, "").strip()
+                env_value = (os.getenv(path_env) or self.local_env.get(path_env, "")).strip()
                 if not env_value:
                     if optional:
                         raise FileNotFoundError(f"optional Git repository is not configured: {repo_id}")
@@ -148,7 +151,6 @@ class LocalGitTools:
         try:
             output = self._run(repo_id, ["grep", "-n", "-I", "-e", text, "--", "."], timeout=45)
         except RuntimeError as exc:
-            # `git grep` returns 1 when there are simply no matches.
             message = str(exc)
             if "(1):" in message and not message.split(":", 1)[-1].strip():
                 output = ""
