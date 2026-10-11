@@ -12,6 +12,7 @@ from typing import Any
 PART_REF_RE = re.compile(r"^part:([a-z0-9][a-z0-9._-]{1,127})@([1-9][0-9]*)$")
 STORE_RELATIVE_PATH = Path("learning/local-ai/store/json-parts")
 MANUAL_METADATA_KEYS = {"file_name", "description", "schema_version", "document_type", "status"}
+JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*([\s\S]*?)\s*```$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -267,6 +268,35 @@ def _manual_json_part_fields(
     return part_type, name, positive, negative
 
 
+def _decode_json_object(raw: bytes, path: Path) -> dict[str, Any]:
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(f"invalid UTF-8 JSON part file: {path}: {exc}") from exc
+
+    stripped = text.strip()
+    if not stripped:
+        raise RuntimeError(f"JSON part file is empty: {path}")
+
+    fence = JSON_FENCE_RE.fullmatch(stripped)
+    if fence is not None:
+        stripped = fence.group(1).strip()
+        if not stripped:
+            raise RuntimeError(f"JSON code fence is empty: {path}")
+
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        first = stripped[:80].replace("\r", "\\r").replace("\n", "\\n")
+        raise RuntimeError(
+            f"invalid JSON part file: {path}: {exc}; first_content={first!r}"
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON part root must be an object: {path}")
+    return payload
+
+
 def load_json_part(resource_root: Path, ref: str, *, accepted_only: bool = True) -> ResolvedJsonPart:
     part_id, version = parse_part_ref(ref)
     store = resolve_json_part_store(resource_root)
@@ -275,12 +305,7 @@ def load_json_part(resource_root: Path, ref: str, *, accepted_only: bool = True)
         raise FileNotFoundError(f"JSON part not found: {ref} ({path})")
 
     raw = path.read_bytes()
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"invalid JSON part file: {path}: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise ValueError(f"JSON part root must be an object: {path}")
+    payload = _decode_json_object(raw, path)
 
     if payload.get("document_type") == "local-rag/json-part":
         canonical = validate_json_part(payload)
