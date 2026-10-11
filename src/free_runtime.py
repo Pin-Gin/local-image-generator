@@ -12,10 +12,12 @@ from database import import_manifest
 from free_compiler import CompiledFreeGeneration, compile_free_generation
 from free_generation_plan import build_free_generation_engine_plan
 from manifest import write_manifest
+from model_catalog import resolve_project_checkpoint
 
 
 FREE_PROFILE_PATH = Path("profiles/free_sdxl_v1.json")
 SHARED_RENDERING_PATH = Path("shared/rendering/matte_dimensional_anime.json")
+LINEART_PROFILE_PATH = Path("shared/lineart/strong_anime_lineart.json")
 
 
 @dataclass(frozen=True)
@@ -44,10 +46,6 @@ def _canonical_json_bytes(payload: Any) -> bytes:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
-def _sha256_bytes(raw: bytes) -> str:
-    return hashlib.sha256(raw).hexdigest()
-
-
 def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -57,6 +55,57 @@ def _resolve_runtime_path(root: Path, value: Any, field_name: str) -> Path:
         raise ValueError(f"config.paths.{field_name} must be a non-empty string")
     path = Path(value)
     return path if path.is_absolute() else root / path
+
+
+def _resolve_free_controls(
+    *,
+    root: Path,
+    prompt_input: dict[str, Any],
+    default_checkpoint: str,
+    lineart_profile: dict[str, Any],
+) -> tuple[str, bool, float | None]:
+    source_json = prompt_input.get("json")
+    if source_json is not None and not isinstance(source_json, dict):
+        raise ValueError("request.prompt_input.json must be an object or null")
+
+    requested_checkpoint: Any = default_checkpoint
+    lineart_request: Any = None
+    if isinstance(source_json, dict):
+        if "checkpoint" in source_json:
+            requested_checkpoint = source_json.get("checkpoint")
+        if "lineart" in source_json:
+            lineart_request = source_json.get("lineart")
+
+    checkpoint_name = resolve_project_checkpoint(root, requested_checkpoint)
+
+    lineart_enabled = False
+    lineart_strength: float | None = None
+    if lineart_request is None:
+        return checkpoint_name, lineart_enabled, lineart_strength
+
+    if isinstance(lineart_request, bool):
+        lineart_enabled = lineart_request
+    elif isinstance(lineart_request, dict):
+        enabled = lineart_request.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ValueError("FREE lineart.enabled must be boolean")
+        lineart_enabled = enabled
+
+        preset = lineart_request.get("preset")
+        if preset is not None:
+            expected_preset = lineart_profile.get("lineart_id")
+            if not isinstance(preset, str) or preset != expected_preset:
+                raise ValueError(f"unsupported FREE lineart preset: {preset}")
+
+        if "strength" in lineart_request:
+            strength = lineart_request.get("strength")
+            if not isinstance(strength, (int, float)) or isinstance(strength, bool):
+                raise ValueError("FREE lineart.strength must be numeric")
+            lineart_strength = float(strength)
+    else:
+        raise ValueError("FREE lineart must be boolean, object, or omitted")
+
+    return checkpoint_name, lineart_enabled, lineart_strength
 
 
 def _build_manifest(
@@ -113,6 +162,7 @@ def _build_manifest(
             "rendering_positive": rendering["positive"],
             "rendering_negative": rendering["negative"],
             "lineart": lineart,
+            "loras": engine_plan.get("loras"),
         },
         "comfyui": {
             "prompt_id": result.prompt_id,
@@ -178,8 +228,10 @@ def run_free_generation(
 
     profile_path = root / FREE_PROFILE_PATH
     rendering_path = root / SHARED_RENDERING_PATH
+    lineart_path = root / LINEART_PROFILE_PATH
     profile = _load_json(profile_path)
     shared_rendering = _load_json(rendering_path)
+    lineart_profile = _load_json(lineart_path)
 
     workflow = profile.get("workflow")
     if not isinstance(workflow, dict):
@@ -189,7 +241,16 @@ def run_free_generation(
     generation = shared_rendering.get("generation")
     if not isinstance(generation, dict):
         raise ValueError("shared rendering generation must be an object")
-    for key in ("checkpoint", "steps", "cfg", "sampler_name", "scheduler"):
+
+    checkpoint_name, lineart_enabled, lineart_strength = _resolve_free_controls(
+        root=root,
+        prompt_input=prompt_input,
+        default_checkpoint=generation.get("checkpoint"),
+        lineart_profile=lineart_profile,
+    )
+
+    workflow["checkpoint"] = checkpoint_name
+    for key in ("steps", "cfg", "sampler_name", "scheduler"):
         workflow[key] = generation[key]
     workflow["denoise"] = 1.0
 
@@ -198,6 +259,9 @@ def run_free_generation(
         content_negative=content_negative,
         workflow=workflow,
         shared_rendering=shared_rendering,
+        lineart_profile=lineart_profile,
+        lineart_enabled=lineart_enabled,
+        lineart_strength=lineart_strength,
     )
 
     options = request.get("options")
