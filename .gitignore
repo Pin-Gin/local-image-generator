@@ -11,6 +11,16 @@ database/*.db
 database/*.sqlite
 database/*.sqlite3
 
+# Local rendering-learning data
+learning/rendering/train_config.local.json
+learning/rendering/output/*
+!learning/rendering/output/.gitkeep
+learning/rendering/dataset/**/*.png
+learning/rendering/dataset/**/*.jpg
+learning/rendering/dataset/**/*.jpeg
+learning/rendering/dataset/**/*.webp
+learning/rendering/dataset/**/*.txt
+
 # Python
 __pycache__/
 *.py[cod]
