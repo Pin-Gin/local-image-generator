@@ -6,17 +6,15 @@ This repository is the production development root for the local-RAG desktop ima
 
 ## Continuation checkpoint
 
-Before continuing implementation in a new chat/session, read:
+Before continuing implementation in a new chat/session, read in this order:
 
-`docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md`
+1. `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md`
+2. `docs/local-ai/LOCAL_TOOLS_AND_ORACLE.md`
+3. `docs/local-ai/README.md`
 
-and then:
+The current stopping point is recorded in `LOCAL_RAG_CURRENT_STATE.md`. As of the 2026-10-11 checkpoint, the end-to-end local-AI Oracle JSON-Part tool path is **user-verified**. Do not restart that work from first principles unless a regression appears.
 
-`docs/local-ai/README.md`
-
-For the new Git / Oracle / reusable-JSON tool layer, also read:
-
-`docs/local-ai/LOCAL_TOOLS_AND_ORACLE.md`
+The immediate continuation is cleanup/hardening of that verified environment, then closure of remaining implemented-but-unverified paths, then the persistent LEARN producer workflow.
 
 ## Product split
 
@@ -72,11 +70,24 @@ local-RAG backend
        -> DEV:      qwen2.5-coder:14b
   -> controlled local tools
        -> read-only Git
-       -> read-only Oracle knowledge queries
-       -> reusable JSON-part lookup
+       -> Oracle knowledge / JSON-part reads
+       -> explicit narrow JSON-part registration writes
 ```
 
-LEARN runtime, text chat, and vision inference are user-verified locally. The new Git/Oracle tool-calling layer is implemented but requires local verification. DEV remains a configured model role and may require local model installation/verification.
+Verified local-AI/tool milestone:
+
+```text
+Qwen LEARN
+  -> json_part_get
+  -> LocalAIToolbox
+  -> Oracle LOCALRAG_KB1 / LR_JSON_PART
+  -> tool result
+  -> final Qwen answer
+```
+
+LEARN runtime, text chat, vision inference, Oracle schema connectivity, JSON-Part write/read round-trip, LocalAIToolbox Oracle read, and the Qwen->Oracle tool-call answer path are user-verified locally.
+
+DEV remains a configured model role and may require local model installation/verification.
 
 ## Persistent local-AI knowledge
 
@@ -95,6 +106,7 @@ Oracle searchable/indexed store:
 ```text
 Oracle Free / FREEPDB1
 schema: LOCALRAG_KB1
+tablespace: LOCALRAG_DATA
 ```
 
 This Oracle schema is new and does not reuse the previous AI-development schema.
@@ -127,10 +139,10 @@ Current implementation state:
 
 - 画像生成: existing generation UI/path plus pre-generation learned-asset selection;
 - 学習: image upload + preview + local vision/chat foundation;
-- 開発: local chat foundation;
+- 開発: local chat/planning foundation;
 - local AI JSON responses: copy + JSON download; `local-rag/json-part` responses can be explicitly registered;
-- local AI Git/Oracle tool calls: implemented as read-only tools;
-- persistent dataset registration/training from UI: not production-complete yet;
+- local AI Git/Oracle tool layer: controlled/read-oriented tool calling; Oracle path verified;
+- persistent dataset registration/training/publish lifecycle: not production-complete yet;
 - DEV file writes/Git writes/arbitrary shell/test/build execution: not enabled.
 
 ## Directory map
@@ -148,7 +160,7 @@ domains/memoriela/           MEMORIELA-domain rules/assets
 learning/rendering/           shared-rendering dataset/training pipeline
 learning/registry/            generation-time learned asset registry
 learning/local-ai/            persistent local-AI store contract / JSON parts
-infra/oracle/                 new Oracle Free local database definition/schema
+infra/oracle/                 Oracle Free local database definition/schema
 docs/local-ai/               local AI runtime/setup/API/UI documentation
 docs/assistant-context/      continuation/handoff state for future sessions
 tools/ollama/                project-local Ollama runtime/models (Git-ignored)
@@ -178,6 +190,13 @@ powershell -ExecutionPolicy Bypass -File .\oracle_local.ps1 -Action reset-schema
 powershell -ExecutionPolicy Bypass -File .\oracle_local.ps1 -Action status
 ```
 
+Project-local Ollama:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action start
+powershell -ExecutionPolicy Bypass -File .\local_ai.ps1 -Action status
+```
+
 ## Shared-rendering learning
 
 The current learned-rendering implementation targets an SDXL LoRA trained locally with `sd-scripts` and injected into both FREE and MEMORIELA ComfyUI workflows through the standard `LoraLoader` node.
@@ -192,14 +211,18 @@ The external MEMORIELA repository remains the authority for MEMORIELA canon and 
 
 ## Governing documents
 
-- `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md` — continuation checkpoint
-- `docs/local-ai/README.md` — project-local AI runtime/setup/API/UI state
-- `docs/local-ai/LOCAL_TOOLS_AND_ORACLE.md` — Git/Oracle/JSON-part tool foundation
+- `docs/assistant-context/LOCAL_RAG_CURRENT_STATE.md` — primary continuation checkpoint, verified/unverified matrix, exact next work
+- `docs/local-ai/LOCAL_TOOLS_AND_ORACLE.md` — Git/Oracle/JSON-part tool contract and verified round-trip
+- `docs/local-ai/README.md` — project-local Ollama/model/runtime/UI documentation
 - `learning/local-ai/JSON_PARTS.md` — reusable JSON part naming/composition contract
 - `SPEC.md` — production scope and architecture
 - `GATE.md` — verification and promotion gates
 - `START_HERE.md` — repository entry point
 
-## Development rule
+## Development rules
 
-Code existence is not a runtime PASS. New routing, learning, LoRA activation, local-AI tool behavior, Oracle behavior, UI behavior, and generated-image behavior must be locally executed and verified before being treated as production-ready.
+Code existence is not a runtime PASS. Local behavior is VERIFIED only from user-supplied execution output.
+
+Do not silently widen tool permissions, merge FREE/MEMORIELA semantics, treat Vision analysis as ground truth, auto-promote staging knowledge, or claim that an uploaded image is persistently learned before the producer lifecycle actually completes.
+
+After editing imported Python while `ui_server.py` is running, restart that server before testing the change.
