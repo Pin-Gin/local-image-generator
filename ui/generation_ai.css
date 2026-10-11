@@ -1,0 +1,105 @@
+.generation-ai-panel {
+  flex: 0 0 auto;
+  border: 1px solid #2b323c;
+  border-radius: 12px;
+  background: #171b20;
+  overflow: hidden;
+}
+.generation-ai-panel > summary {
+  min-height: 44px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 650;
+}
+.generation-ai-panel > summary::-webkit-details-marker { display: none; }
+.generation-ai-panel > summary::before {
+  content: '›';
+  display: inline-block;
+  color: #8f99a6;
+  transform: rotate(0deg);
+  transition: transform 0.15s ease;
+}
+.generation-ai-panel[open] > summary::before { transform: rotate(90deg); }
+.generation-ai-panel > summary .status-pill { margin-left: auto; }
+.generation-ai-toolbar {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #252b33;
+  border-bottom: 1px solid #252b33;
+}
+.auto-analysis-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #c9d0d8;
+  font-size: 12px;
+}
+.auto-analysis-toggle input { accent-color: #dce2ea; }
+.text-action-button {
+  border: 1px solid #3a424d;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #20262d;
+  color: #dce2ea;
+  cursor: pointer;
+  font-size: 12px;
+}
+.text-action-button:hover:not(:disabled) { background: #2a313a; }
+.text-action-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.generation-ai-chat-log {
+  max-height: 220px;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  user-select: text;
+}
+.generation-ai-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px 12px 8px;
+  border-top: 1px solid #252b33;
+}
+.generation-ai-composer textarea {
+  min-height: 64px;
+  max-height: 140px;
+  resize: vertical;
+  background: #101318;
+  color: #f2f4f8;
+  border: 1px solid #343c47;
+  border-radius: 9px;
+  padding: 10px 11px;
+  line-height: 1.5;
+  outline: none;
+}
+.generation-ai-composer textarea:focus { border-color: #596370; }
+.generation-ai-note {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: #7f8996;
+  font-size: 10px;
+  line-height: 1.45;
+}
+@media (max-width: 760px) {
+  .generation-ai-toolbar,
+  .generation-ai-composer {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .text-action-button { width: 100%; }
+}
