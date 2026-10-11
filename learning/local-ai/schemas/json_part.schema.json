@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-rag.local/schemas/json_part.schema.json",
+  "title": "local-RAG reusable JSON part",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "document_type",
+    "part_id",
+    "version",
+    "part_type",
+    "name",
+    "status",
+    "aliases",
+    "tags",
+    "payload",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "document_type": {"const": "local-rag/json-part"},
+    "part_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"
+    },
+    "version": {"type": "integer", "minimum": 1},
+    "part_type": {"type": "string", "minLength": 1, "maxLength": 64},
+    "name": {"type": "string", "minLength": 1, "maxLength": 256},
+    "status": {"enum": ["staging", "accepted", "retired"]},
+    "aliases": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "generation": {
+          "type": "object",
+          "properties": {
+            "positive": {"type": "string"},
+            "negative": {"type": "string"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source_type", "source_ref"],
+      "properties": {
+        "source_type": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string"},
+        "git_repo_id": {"type": "string"},
+        "git_commit_sha": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
