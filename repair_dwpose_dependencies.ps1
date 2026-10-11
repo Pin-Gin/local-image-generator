@@ -51,8 +51,9 @@ function Ensure-PythonModule {
   Write-Host "[POSE:DWPOSE-DEPENDENCY:OK] $Module"
 }
 
-# DWPose imports these eagerly through custom_controlnet_aux.dwpose.body/util.
+# DWPose imports these eagerly through custom_controlnet_aux.dwpose body/hand/util modules.
 Ensure-PythonModule "matplotlib" "matplotlib"
+Ensure-PythonModule "skimage" "scikit-image"
 
 # torchvision must stay matched to the existing ComfyUI torch build; never replace it automatically.
 Write-Host "[POSE:DWPOSE-DEPENDENCY:CHECK] torchvision"
