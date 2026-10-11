@@ -1,0 +1,23 @@
+{
+  "profile_id": "free-sdxl-v1",
+  "profile_version": 1,
+  "status": "active-free-base",
+  "character": null,
+  "authority_mode": "none",
+  "workflow": {
+    "mode": "text2img",
+    "template": "workflows/sdxl_text2img_api.json",
+    "checkpoint": "sd_xl_base_1.0.safetensors",
+    "seed": 1,
+    "steps": 20,
+    "cfg": 6.5,
+    "sampler_name": "euler",
+    "scheduler": "normal",
+    "denoise": 1.0,
+    "filename_prefix": "LOCAL_RAG_FREE"
+  },
+  "prompt": {
+    "positive": "free generation base",
+    "negative": ""
+  }
+}
