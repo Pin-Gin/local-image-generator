@@ -1,6 +1,6 @@
 # MEMORIELA Local Image Generator — Production Gates
 
-Status: **ACTIVE / G0–G5 VERIFIED**
+Status: **ACTIVE / G0–G5 VERIFIED / UI TRACK STARTED**
 
 ## Gate principle
 
@@ -120,15 +120,27 @@ The G5 verification modified only the local SQLite history state and did not wri
 
 ## G6 — Identity Stability
 
-**Status: NEXT — criteria must be defined before implementation**
+**Status: DEFERRED BY AUTHOR DECISION**
 
-PASS criteria will be defined before implementation begins.
+Current output similarity is sufficient for this stage. Stronger face/touch/identity constraints are intentionally deferred until those specifications are explicitly added.
 
-This gate must evaluate repeated generation against approved MASTER/identity authority and must separate visual acceptance from mere pipeline success.
+This gate is not marked PASS and may be resumed later.
 
-## G7 — UI Integration
+## G7 — UI / Chat Integration
+
+**Status: IN PROGRESS**
 
 PASS requires the user-facing UI to invoke the production core without bypassing authority/profile/manifest rules.
+
+Current first slice:
+
+- local chat-style UI shell
+- profile selection
+- free-text user input
+- Generation Request JSON creation
+- explicit JSON contract/schema
+
+The first slice does not yet submit image generation from the UI.
 
 ## G8 — Desktop Packaging
 
@@ -148,4 +160,5 @@ PASS requires:
 - G3 Authority / Profile Compilation: PASS
 - G4 Manifest and Output Integrity: PASS
 - G5 SQLite History / Lookup: PASS
-- G6 Identity Stability: NEXT
+- G6 Identity Stability: DEFERRED
+- G7 UI / Chat Integration: IN PROGRESS
