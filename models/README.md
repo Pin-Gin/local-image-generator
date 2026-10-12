@@ -11,36 +11,57 @@ models/
   checkpoints/
   loras/
   controlnet/
+  ipadapter/
+  clip_vision/
   upscale_models/
   vae/
 ```
 
-Current base checkpoint location:
+## Base checkpoint — VERIFIED
 
 ```text
 models/checkpoints/sd_xl_base_1.0.safetensors
+SHA256: 31E35C80FC4829D14F90153F4C74CD59C90B779F6AFE05A74CD6120B893F7E5B
 ```
 
-Verified local state on 2026-10-11:
+`configure_comfyui_models.ps1` exposes the project-owned model root to the portable ComfyUI runtime through `extra_model_paths.yaml`.
 
-- the project copy under `C:\Dev\local-image-generator\models\checkpoints` matched the source SHA-256;
-- `configure_comfyui_models.ps1` configured the portable ComfyUI `extra_model_paths.yaml` with the `local_rag` model root;
-- after restart, ComfyUI `CheckpointLoaderSimple` exposed `sd_xl_base_1.0.safetensors` through `/object_info/CheckpointLoaderSimple` while using the project model root.
-
-The previous Downloads/ComfyUI-local duplicate checkpoint is no longer required once removed locally.
-
-ComfyUI should read this directory through `extra_model_paths.yaml` rather than requiring duplicate model files under the portable ComfyUI installation.
-
-## Pose-control target
-
-Step E uses a project-owned SDXL OpenPose ControlNet at:
+## Pose Control — VERIFIED
 
 ```text
 models/controlnet/SDXL/controlnet-openpose-sdxl-1.0/diffusion_pytorch_model.safetensors
 ```
 
-`install_pose_control.ps1` installs the DWPose preprocessor under the existing portable ComfyUI runtime and downloads the OpenPose ControlNet above into the project model root. The binary remains ignored by Git.
+The current DWPose/OpenPose stack was user-verified through the capability probe and real FREE runtime generation.
 
-The pose-control asset is not considered locally verified until ComfyUI has been restarted and `src/pose_control_capability_test.py` reports `[POSE:CAPABILITY:READY]`.
+## IP-Adapter appearance authority — VERIFIED capability
+
+```text
+models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors
+models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors
+```
+
+The user verified that ComfyUI exposes:
+
+```text
+IPAdapterUnifiedLoader
+IPAdapterAdvanced
+IPAdapterModelLoader
+CLIPVisionLoader
+```
+
+and both project-owned model files are visible to ComfyUI.
+
+The target FREE architecture uses the main reference image through IP-Adapter and generates from a fresh latent; the source image is not used as a VAE/img2img starting latent.
+
+## Rendering / lineart LoRAs
+
+Project-local LoRA binaries belong under:
+
+```text
+models/loras/
+```
+
+The trained Matte Dimensional Anime LoRA has previously generated successfully, but `shared/rendering/matte_dimensional_anime.json` currently keeps its LoRA `enabled: false`. Do not silently enable it.
 
 Do not commit `.safetensors`, `.ckpt`, `.pt`, `.pth`, `.onnx`, or `.gguf` files.
