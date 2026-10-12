@@ -2,62 +2,110 @@
 
 Status: **ACTIVE LOCAL IMAGE GENERATION APPLICATION**
 
-This repository is the production development root for the Windows desktop application `local-RAG`.
+Repository:
 
-## New chat / continuation entry point
+```text
+Pin-Gin/local-image-generator
+local root: C:\Dev\local-image-generator
+```
 
-Before changing architecture or implementation, read exactly this continuation document first:
+## Read this first
+
+The authoritative continuation document is:
 
 ```text
 docs/handoff/LOCAL_RAG_HANDOFF.md
 ```
 
-That file is the **single authoritative handoff** for:
+Read it completely before architecture or implementation changes. Then inspect current `main`. Repository state overrides old chat memory.
 
-- current architecture direction;
-- VERIFIED / UNVERIFIED runtime state;
-- exact next implementation order;
-- FREE / MEMORIELA / LEARN responsibility split;
-- JSON Part state;
-- ComfyUI diagnostic findings;
-- Oracle/local-AI verification state;
-- anti-drift development rules.
-
-After reading it, inspect the current Git `main` before editing. Repository state overrides old chat memory.
-
-## Current top-level direction
-
-The desktop application keeps the local AI subsystem, but generation responsibilities are being separated:
+Repository organization is documented at:
 
 ```text
-FREE
-  -> deterministic generation
-  -> no Qwen prompt rewrite / no Qwen pre-generation asset selection
-  -> exact prompt + explicitly referenced JSON Parts
-
-MEMORIELA
-  -> local AI remains for canon/request interpretation and controlled planning
-  -> resolved plan executes through the common deterministic generation engine
-
-LEARN
-  -> local AI remains for image/text analysis and JSON Part candidate creation
-  -> explicit user acceptance before persistent reuse
+docs/architecture/REPOSITORY_LAYOUT.md
 ```
 
-This split is the current **target design**. The existing code still contains generation-side AI selection that must be bypassed/refactored for FREE; do not claim the new split is already complete.
+## Current FREE direction
 
-## Core identities
+FREE is deterministic and must not use conversational/local AI for request interpretation.
+
+The current accepted authority split is:
 
 ```text
-application/repo: local-RAG / Pin-Gin/local-image-generator
-local root:       C:\Dev\local-image-generator
-canon authority:  Pin-Gin/MEMORIELA
-local canon clone: C:\Dev\MEMORIELA
+MAIN REFERENCE IMAGE
+  -> IP-Adapter
+  -> appearance authority
+
+POSE REFERENCE IMAGE
+  -> DWPose / OpenPose ControlNet
+  -> pose/spatial authority
+
+UP TO FIVE ROLE-BOUND JSON PARTS
+  1. CHARACTER / BODY
+  2. OUTFIT / PROP
+  3. EXPRESSION / FACE
+  4. CAMERA / COMPOSITION
+  5. BACKGROUND / SCENE
+
+RENDERING PROFILE
+  -> drawing/rendering authority
+  -> separate from the five content slots
+
+LINEART PROFILE
+  -> contour authority
+  -> separate from rendering depth
+
+FRESH LATENT
+  -> redraw/generate final image
 ```
 
-`MEMORIELA` is not the generic application/build/storage name.
+Do not revert FREE to source-image img2img latent as the main appearance mechanism. The img2img authority experiment showed that source appearance and source pose become coupled too strongly.
 
-## Current configured runtime endpoints
+## Current visual target
+
+Rendering identity remains **Matte Dimensional Anime**, but the target is now explicitly:
+
+```text
+matte response
++ anime realism / modeled form
++ spatial depth
++ slight 3D-anime dimensionality
++ clear intentional linework
+```
+
+The output must remain an anime/illustration image, not photoreal and not raw CGI/PBR.
+
+Rendering and lineart are separate authorities. Stronger rendering must not erase contour clarity.
+
+## Reference-image storage
+
+Local FREE references belong under:
+
+```text
+references/free/main/   # IP-Adapter appearance image
+references/free/pose/   # DWPose/OpenPose pose image
+```
+
+Actual image files are ignored by Git by default.
+
+## JSON lifecycle
+
+Local AI remains enabled in LEARN and may create detailed JSON candidates.
+
+```text
+learning/local-ai/store/staging/
+  -> structural validation / explicit acceptance
+learning/local-ai/store/json-parts/
+  -> deterministic FREE consumption
+```
+
+Sync/accept must preserve payload semantics. Structural validation may check schema/ref/role/hash without rewriting content.
+
+## MEMORIELA boundary
+
+MEMORIELA remains a separate canon-aware domain. FREE tests and generic FREE generation must not silently use MEMORIELA character assets.
+
+## Current operational endpoints
 
 ```text
 ComfyUI: http://127.0.0.1:8188
@@ -65,42 +113,16 @@ Ollama:  http://127.0.0.1:11435
 Oracle:  127.0.0.1:1521/FREEPDB1
 ```
 
-Current app database path:
+## Current active diagnostic
+
+The IP-Adapter + DWPose + JSON + Rendering/Lineart authority experiment lives under:
 
 ```text
-database/local_rag.db
+experiments/active/free_ipadapter_pose_json_experiment.py
 ```
 
-Current application output root:
-
-```text
-outputs/
-```
-
-## Governing/reference documents
-
-Primary continuation source:
-
-```text
-docs/handoff/LOCAL_RAG_HANDOFF.md
-```
-
-Specialized references:
-
-```text
-SPEC.md
-GATE.md
-learning/local-ai/JSON_PARTS.md
-docs/local-ai/README.md
-docs/local-ai/LOCAL_TOOLS_AND_ORACLE.md
-docs/local-ai/GENERATION_ASSISTANT.md
-learning/rendering/README.md
-```
-
-Specialized documents do not override a newer user-approved architecture decision recorded in the consolidated handoff. If they conflict, update them rather than silently reverting direction.
+Experiments are diagnostic only. Production engine code belongs in `src/`.
 
 ## Development rule
 
-Code existence is not runtime PASS. A behavior is VERIFIED only from user-supplied local execution evidence.
-
-After modifying Python imported by a running `ui_server.py`, restart that process before testing the new code.
+Only user-supplied local execution/visual evidence promotes a runtime path to **VERIFIED**. Git changes by themselves are **IMPLEMENTED / UNVERIFIED**.
