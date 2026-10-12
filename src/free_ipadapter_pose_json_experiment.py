@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ RENDERING_PATH = ROOT / "shared" / "rendering" / "matte_dimensional_anime.json"
 LINEART_PATH = ROOT / "shared" / "lineart" / "strong_anime_lineart.json"
 POSE_MODEL = "SDXL/controlnet-openpose-sdxl-1.0/diffusion_pytorch_model.safetensors"
 SUPPORTED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
+DEFAULT_DIAGNOSTIC_PART = "part:diagnostic.authority_probe@1"
 
 
 def _load_json(path: Path) -> dict:
@@ -31,6 +33,13 @@ def _load_json(path: Path) -> dict:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _weighted_prompt(text: str, strength: float) -> str:
+    stripped = text.strip()
+    if abs(strength - 1.0) < 1e-9:
+        return stripped
+    return f"({stripped}:{strength:g})"
 
 
 def _image_arg(value: str) -> Path:
@@ -47,39 +56,63 @@ def _parse_args() -> argparse.Namespace:
         description=(
             "Experimental FREE authority split: source image -> IP-Adapter appearance, "
             "pose image -> DWPose/OpenPose ControlNet, JSON Part -> exact content, "
-            "shared Matte Dimensional Anime -> rendering. No local LLM is used."
+            "shared Matte Dimensional Anime -> rendering, strong lineart conditioning -> contours. "
+            "No local LLM is used."
         )
     )
     parser.add_argument("source_image", type=_image_arg)
     parser.add_argument("pose_image", type=_image_arg)
     parser.add_argument(
         "--part",
-        required=True,
-        help="Accepted JSON Part ref, for example part:anime_pose_hair_touch@1",
+        default=DEFAULT_DIAGNOSTIC_PART,
+        help=f"Accepted JSON Part ref. Default: {DEFAULT_DIAGNOSTIC_PART}",
     )
     parser.add_argument(
         "--ip-weight",
         type=float,
-        default=0.9,
-        help="IP-Adapter appearance weight. Default: 0.9",
+        default=0.75,
+        help="IP-Adapter appearance weight. Lowered from the first experiment so pose control has more room. Default: 0.75",
     )
     parser.add_argument(
         "--ip-start",
         type=float,
-        default=0.15,
-        help="IP-Adapter start percentage. Keeping it above zero lets DWPose establish structure first. Default: 0.15",
+        default=0.30,
+        help="IP-Adapter start percentage. Later start lets DWPose establish body structure first. Default: 0.30",
     )
     parser.add_argument(
         "--pose-strength",
         type=float,
-        default=1.0,
-        help="OpenPose ControlNet strength. Default: 1.0",
+        default=1.20,
+        help="OpenPose ControlNet strength. Default: 1.20",
+    )
+    parser.add_argument(
+        "--rendering-strength",
+        type=float,
+        default=1.25,
+        help="Prompt weight applied only to Matte Dimensional Anime rendering conditioning. Default: 1.25",
+    )
+    parser.add_argument(
+        "--lineart-strength",
+        type=float,
+        default=1.65,
+        help="Strong Anime Lineart conditioning strength. Default: 1.65",
+    )
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=28,
+        help="KSampler steps for this multi-conditioning diagnostic. Default: 28",
     )
     parser.add_argument(
         "--seed",
         type=int,
         default=975311,
         help="KSampler seed. Default: 975311",
+    )
+    parser.add_argument(
+        "--repeat-check",
+        action="store_true",
+        help="Run the exact same workflow twice and report whether output file SHA256 is identical.",
     )
     return parser.parse_args()
 
@@ -92,6 +125,12 @@ def main() -> int:
         raise ValueError("--ip-start must be >= 0 and < 1.0")
     if not 0.0 < args.pose_strength <= 2.0:
         raise ValueError("--pose-strength must be > 0 and <= 2.0")
+    if not 0.0 < args.rendering_strength <= 2.0:
+        raise ValueError("--rendering-strength must be > 0 and <= 2.0")
+    if not 0.0 < args.lineart_strength <= 2.0:
+        raise ValueError("--lineart-strength must be > 0 and <= 2.0")
+    if args.steps <= 0:
+        raise ValueError("--steps must be a positive integer")
     if args.seed < 0:
         raise ValueError("--seed must be a non-negative integer")
 
@@ -129,11 +168,18 @@ def main() -> int:
     generation = rendering["generation"]
     checkpoint = resolve_project_checkpoint(ROOT, generation["checkpoint"])
     workflow["checkpoint"] = checkpoint
-    workflow["steps"] = generation["steps"]
+    workflow["steps"] = args.steps
     workflow["cfg"] = generation["cfg"]
     workflow["sampler_name"] = generation["sampler_name"]
     workflow["scheduler"] = generation["scheduler"]
     workflow["denoise"] = 1.0
+
+    rendering_for_plan = copy.deepcopy(rendering)
+    base_rendering_positive = rendering_for_plan["prompt"]["positive"]
+    rendering_for_plan["prompt"]["positive"] = _weighted_prompt(
+        base_rendering_positive,
+        args.rendering_strength,
+    )
 
     pose_control = {
         "enabled": True,
@@ -164,9 +210,10 @@ def main() -> int:
         content_positive=part.positive,
         content_negative=part.negative,
         workflow=workflow,
-        shared_rendering=rendering,
+        shared_rendering=rendering_for_plan,
         lineart_profile=lineart,
-        lineart_enabled=False,
+        lineart_enabled=True,
+        lineart_strength=args.lineart_strength,
         pose_control=pose_control,
     )
 
@@ -183,10 +230,11 @@ def main() -> int:
 
     workflow_json = compiled.compiled_workflow
 
-    # The deterministic FREE compiler has already applied checkpoint selection,
-    # optional rendering LoRA, rendering conditioning, and DWPose/ControlNet.
-    # IP-Adapter is inserted only on the MODEL path. The sampler keeps the
-    # compiler's content/rendering/pose conditioning and uses a fresh latent.
+    # The deterministic FREE compiler already provides exact JSON content,
+    # stronger shared rendering conditioning, strong lineart conditioning,
+    # optional configured rendering/lineart LoRAs, and DWPose/OpenPose control.
+    # IP-Adapter is inserted only on the MODEL path. The sampler uses a fresh
+    # latent so source-image pose is not carried in through img2img.
     base_model_ref = workflow_json["7"]["inputs"]["model"]
     workflow_json["30"] = {
         "class_type": "LoadImage",
@@ -225,11 +273,26 @@ def main() -> int:
         request_timeout_seconds=request_timeout,
         generation_timeout_seconds=generation_timeout,
     )
+    first_output_sha = _sha256(result.output_path)
+
+    repeat_result = None
+    repeat_output_sha = None
+    if args.repeat_check:
+        repeat_root = output_root / "repeat"
+        repeat_result = run_workflow_and_download(
+            base_url=base_url,
+            workflow=workflow_json,
+            output_dir=repeat_root,
+            request_timeout_seconds=request_timeout,
+            generation_timeout_seconds=generation_timeout,
+        )
+        repeat_output_sha = _sha256(repeat_result.output_path)
 
     rendering_lora = plan["loras"]["rendering"]
+    lineart_lora = plan["loras"]["lineart"]
     manifest = {
         "schema_version": 1,
-        "experiment": "free-ipadapter-plus-json-plus-dwpose-v1",
+        "experiment": "free-ipadapter-plus-json-plus-dwpose-strong-render-line-v2",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "ai_interpretation": False,
         "source_image": {
@@ -262,8 +325,19 @@ def main() -> int:
         "rendering": {
             "rendering_id": rendering.get("rendering_id"),
             "conditioning_enabled": True,
+            "conditioning_strength": args.rendering_strength,
             "lora_enabled": bool(rendering_lora.get("enabled")),
             "lora_name": rendering_lora.get("lora_name"),
+        },
+        "lineart": {
+            "enabled": True,
+            "conditioning_strength": args.lineart_strength,
+            "lora_enabled": bool(lineart_lora and lineart_lora.get("enabled")),
+            "lora_name": None if lineart_lora is None else lineart_lora.get("lora_name"),
+        },
+        "sampler": {
+            "steps": args.steps,
+            "seed": args.seed,
         },
         "latent": {
             "mode": "fresh-text2img-latent",
@@ -271,10 +345,16 @@ def main() -> int:
         },
         "output": {
             "path": str(result.output_path),
-            "sha256": _sha256(result.output_path),
+            "sha256": first_output_sha,
+        },
+        "repeat_check": None if repeat_result is None else {
+            "path": str(repeat_result.output_path),
+            "sha256": repeat_output_sha,
+            "same_sha256": first_output_sha == repeat_output_sha,
         },
         "comfyui": {
             "prompt_id": result.prompt_id,
+            "repeat_prompt_id": None if repeat_result is None else repeat_result.prompt_id,
         },
     }
     manifest_path = output_root / "experiment_manifest.json"
@@ -285,16 +365,30 @@ def main() -> int:
     print(f"[FREE:IPADAPTER:POSE-UPLOAD:OK] {pose_remote}")
     print(f"[FREE:IPADAPTER:APPEARANCE:OK] weight={args.ip_weight:g} start={args.ip_start:g}")
     print(f"[FREE:IPADAPTER:DWPOSE:OK] strength={args.pose_strength:g}")
-    print(f"[FREE:IPADAPTER:RENDERING-CONDITIONING:OK] {rendering.get('rendering_id')}")
+    print(
+        f"[FREE:IPADAPTER:RENDERING-CONDITIONING:OK] "
+        f"{rendering.get('rendering_id')} strength={args.rendering_strength:g}"
+    )
+    print(f"[FREE:IPADAPTER:LINEART:OK] strength={args.lineart_strength:g}")
     print(
         "[FREE:IPADAPTER:RENDERING-LORA:{}] {}".format(
             "ON" if rendering_lora.get("enabled") else "OFF",
             rendering_lora.get("lora_name"),
         )
     )
-    print("[FREE:IPADAPTER:FRESH-LATENT:OK] denoise=1")
+    print(
+        "[FREE:IPADAPTER:LINEART-LORA:{}] {}".format(
+            "ON" if lineart_lora and lineart_lora.get("enabled") else "OFF",
+            None if lineart_lora is None else lineart_lora.get("lora_name"),
+        )
+    )
+    print(f"[FREE:IPADAPTER:FRESH-LATENT:OK] denoise=1 steps={args.steps} seed={args.seed}")
     print(f"[FREE:IPADAPTER:COMFYUI:OK] prompt_id={result.prompt_id}")
     print(f"[FREE:IPADAPTER:OUTPUT:OK] {result.output_path}")
+    if repeat_result is not None:
+        same = first_output_sha == repeat_output_sha
+        print(f"[FREE:IPADAPTER:REPEAT:OUTPUT] {repeat_result.output_path}")
+        print(f"[FREE:IPADAPTER:REPEAT:SHA256:{'SAME' if same else 'DIFFERENT'}] first={first_output_sha} repeat={repeat_output_sha}")
     print(f"[FREE:IPADAPTER:MANIFEST:OK] {manifest_path}")
     print("[FREE:IPADAPTER:EXPERIMENT:OK]")
     return 0
