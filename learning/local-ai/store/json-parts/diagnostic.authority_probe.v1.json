@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "document_type": "local-rag/json-part",
+  "part_id": "diagnostic.authority_probe",
+  "version": 1,
+  "part_type": "scene",
+  "name": "Authority diagnostic scene probe",
+  "status": "accepted",
+  "aliases": ["authority probe", "diagnostic scene probe"],
+  "tags": ["diagnostic", "scene", "authority-test"],
+  "payload": {
+    "generation": {
+      "positive": "plain white studio background, one large matte red cube clearly visible on the image-left side, one large matte blue sphere clearly visible on the image-right side, clean neutral studio floor, simple uncluttered composition, no text",
+      "negative": "busy background, scenery clutter, text, logo, watermark, monochrome props, low contrast props"
+    }
+  },
+  "provenance": {
+    "source_type": "developer-authored-diagnostic",
+    "source_ref": "FREE authority separation test"
+  }
+}
