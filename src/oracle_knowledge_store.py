@@ -58,6 +58,21 @@ def load_env_file(path: Path | None) -> dict[str, str]:
     return values
 
 
+def prepare_json_part_for_oracle(document: dict[str, Any]) -> tuple[dict[str, Any], str, str]:
+    """Validate identity/metadata while preserving the accepted document exactly by value.
+
+    validate_json_part() returns a normalized compatibility copy. That copy is useful for
+    validated identity fields, but Oracle must index the accepted file semantics rather
+    than trimmed/rewritten values. Therefore DOCUMENT_JSON and CONTENT_SHA256 are derived
+    from the original accepted document.
+    """
+
+    validated = validate_json_part(document)
+    canonical = json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return validated, canonical, digest
+
+
 class OracleKnowledgeStore:
     def __init__(self, resource_root: Path) -> None:
         env_file = resolve_env_file(resource_root)
@@ -179,9 +194,7 @@ class OracleKnowledgeStore:
         }
 
     def upsert_json_part(self, document: dict[str, Any], *, file_path: str | None = None) -> dict[str, Any]:
-        part = validate_json_part(document)
-        canonical = json.dumps(part, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        part, canonical, digest = prepare_json_part_for_oracle(document)
         sql = """
             MERGE INTO LR_JSON_PART target
             USING (
