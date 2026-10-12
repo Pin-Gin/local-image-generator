@@ -55,39 +55,36 @@
     URL.revokeObjectURL(url);
   }
 
-  async function registerJsonPart(value, button, {accept = false} = {}) {
+  async function acceptJsonPart(value, button) {
     const original = button.textContent;
     button.disabled = true;
-    button.textContent = accept ? '採用中...' : '登録中...';
+    button.textContent = '検証・採用中...';
     try {
-      const document = accept ? {...value, status: 'accepted'} : value;
       const response = await fetch('/api/knowledge/json-part', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({document}),
+        body: JSON.stringify({document: value, accept: true}),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
       const result = payload.json_part;
-      if (accept) {
-        button.textContent = result?.oracle_indexed ? 'Part採用済み' : 'Part採用・保存済み';
-        button.title = result?.oracle_indexed
-          ? `${result.ref} をacceptedとして保存しOracleへ索引登録しました`
-          : `${result?.ref || 'JSON part'} をacceptedとして保存しました。Oracleは未索引です`;
-      } else {
-        button.textContent = result?.oracle_indexed ? 'Part登録済み' : 'Part保存済み';
-        button.title = result?.oracle_indexed
-          ? `${result.ref} をファイル保存しOracleへ索引登録しました`
-          : `${result?.ref || 'JSON part'} をファイル保存しました。Oracleは未索引です`;
-      }
+      const preservation = result?.semantic_preservation === 'status-only';
+      button.textContent = result?.oracle_indexed ? 'Part採用済み' : 'Part採用・保存済み';
+      button.title = [
+        `${result?.ref || 'JSON part'} をhash-gated staging→acceptedで採用しました`,
+        preservation ? 'payload semantic preservation: OK' : 'payload semantic preservation: UNKNOWN',
+        result?.payload_sha256 ? `payload SHA256: ${result.payload_sha256}` : null,
+        result?.receipt_path ? `receipt: ${result.receipt_path}` : null,
+        result?.oracle_indexed ? 'Oracle indexed' : 'Oracle not indexed',
+      ].filter(Boolean).join('\n');
     } catch (error) {
-      button.textContent = accept ? '採用失敗' : '登録失敗';
+      button.textContent = '採用失敗';
       button.title = error.message;
     } finally {
       window.setTimeout(() => {
         button.disabled = false;
         if (!button.textContent.includes('済み')) button.textContent = original;
-      }, 2200);
+      }, 2600);
     }
   }
 
@@ -115,22 +112,15 @@
       && value.document_type === 'local-rag/json-part'
       && typeof value.part_id === 'string'
       && Number.isInteger(value.version)
+      && value.status === 'staging'
     ) {
-      const registerButton = document.createElement('button');
-      registerButton.className = 'copy-message-button json-register-button';
-      registerButton.type = 'button';
-
-      if (value.status === 'staging') {
-        registerButton.textContent = 'Part採用';
-        registerButton.title = 'この候補を明示的に採用し、acceptedとして永続ストアとOracleへ登録';
-        registerButton.addEventListener('click', () => registerJsonPart(value, registerButton, {accept: true}));
-      } else {
-        registerButton.textContent = 'Part登録';
-        registerButton.title = 'このJSON Partをlocal-RAGの永続ストアへ登録';
-        registerButton.addEventListener('click', () => registerJsonPart(value, registerButton));
-      }
-
-      roleRow.appendChild(registerButton);
+      const acceptButton = document.createElement('button');
+      acceptButton.className = 'copy-message-button json-register-button';
+      acceptButton.type = 'button';
+      acceptButton.textContent = 'Part採用';
+      acceptButton.title = '構造検証→staging固定→SHA256 gate→statusだけacceptedへ変更して採用';
+      acceptButton.addEventListener('click', () => acceptJsonPart(value, acceptButton));
+      roleRow.appendChild(acceptButton);
     }
   };
 })();
