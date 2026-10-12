@@ -368,35 +368,19 @@ User-local verification on 2026-10-12:
 [JSON-SYNC:TEST:OK]
 ```
 
-Rules now enforced by the core lifecycle:
+Rules enforced by the core lifecycle:
 
 - canonical JSON structure is validated;
 - FREE `part_type` is restricted to the five production slot roles;
 - accepted ID/version cannot be silently overwritten;
-- staging SHA256 can gate acceptance;
+- staging SHA256 gates acceptance;
 - acceptance may change `status: staging -> accepted` only;
 - payload semantic SHA256 must remain unchanged;
 - an acceptance receipt is written.
 
-The remote assistant does not need to inspect or semantically rewrite the payload to perform this sync.
+### Desktop/API hash-gated acceptance — VERIFIED
 
-### Desktop/API wiring — IMPLEMENTED / UNVERIFIED
-
-Current `main` now routes the LEARN chat `Part採用` action through the same lifecycle:
-
-```text
-local AI staging JSON
--> user clicks Part採用
--> structural/role validation
--> stage
--> SHA256 gate
--> status-only accepted promotion
--> receipt
--> accepted store
--> Oracle indexing when configured
-```
-
-Files:
+Implemented in:
 
 ```text
 src/ui_server.py
@@ -404,7 +388,19 @@ ui/json_download.js
 tests/integration/json_part_ui_api_test.py
 ```
 
-This desktop/API path still requires local verification after pull/restart.
+User-local verification on 2026-10-12:
+
+```text
+[JSON-UI-API:HTTP:OK]
+[JSON-UI-API:HASH-GATED-ACCEPT:OK]
+[JSON-UI-API:PAYLOAD-PRESERVED:OK]
+[JSON-UI-API:RECEIPT:OK]
+[JSON-UI-API:TEST:OK]
+```
+
+The `Part採用` path is therefore verified to route through the same structural validation and hash-gated acceptance logic at the API integration level.
+
+The next remaining proof is the **real interactive LEARN chat path**: local AI emits one staging JSON candidate, user clicks `Part採用`, and the resulting accepted file/receipt are confirmed.
 
 ---
 
@@ -451,12 +447,11 @@ tests/capabilities/pose_control_capability_test.py
 
 ## 13. Current implementation priorities
 
-1. **Verify desktop/API hash-gated Part acceptance locally.**
-2. Use the LEARN local AI to create one real staging JSON, click Part採用, verify accepted file/receipt without sharing payload content if desired.
-3. Rewrite/strengthen `Matte Dimensional Anime` as explicit structured Rendering Authority JSON.
-4. Make production FREE runtime consume the two-image + five-slot input contract directly.
-5. A/B tune appearance, pose, rendering and lineart.
-6. Only after high-level authority balance works: targeted Inpaint -> Detailer -> Upscale.
+1. **Verify the real interactive LEARN chat -> staging JSON -> Part採用 path.**
+2. Rewrite/strengthen `Matte Dimensional Anime` as explicit structured Rendering Authority JSON.
+3. Make production FREE runtime consume the two-image + five-slot input contract directly.
+4. A/B tune appearance, pose, rendering and lineart.
+5. Only after high-level authority balance works: targeted Inpaint -> Detailer -> Upscale.
 
 Do not jump to hand/finger/face detail correction before the high-level authority stack is settled.
 
