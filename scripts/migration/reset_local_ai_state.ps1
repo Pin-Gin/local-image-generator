@@ -10,7 +10,7 @@ $JsonReset = Join-Path $RepoRoot "scripts\migration\reset_free_json_store.py"
 
 if (-not $Apply) {
   Write-Host "[LOCAL-AI-RESET:DRY-RUN] no state changed; rerun with -Apply"
-  Write-Host "[LOCAL-AI-RESET:ORACLE] recreate LOCALRAG_KB1 from scratch using oracle_local.ps1 -Action reset-schema"
+  Write-Host "[LOCAL-AI-RESET:ORACLE] start Oracle if needed, then recreate LOCALRAG_KB1 from scratch"
   Write-Host "[LOCAL-AI-RESET:FILES] clear local JSON staging/accepted/receipts and bootstrap free.test.background_scene@1"
   Write-Host "[LOCAL-AI-RESET:PRESERVE] Oracle container/volume/tablespace, LR_SCHEMA_META recreation, models, SQLite, tools, reference images"
   exit 0
@@ -29,6 +29,13 @@ if (-not (Test-Path -LiteralPath $JsonReset -PathType Leaf)) {
 Push-Location $RepoRoot
 try {
   Write-Host "[LOCAL-AI-RESET:ORACLE:START]"
+  & $OracleScript -Action start
+  if ($LASTEXITCODE -ne 0) {
+    throw "Oracle start failed"
+  }
+  Write-Host "[LOCAL-AI-RESET:ORACLE:READY]"
+
+  Write-Host "[LOCAL-AI-RESET:ORACLE:RESET]"
   & $OracleScript -Action reset-schema
   if ($LASTEXITCODE -ne 0) {
     throw "Oracle schema reset failed"
