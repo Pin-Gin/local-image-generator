@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "document_type": "local-rag/diagnostic-fixture",
+  "name": "Authority diagnostic scene probe",
+  "generation": {
+    "positive": "plain white studio background, one large matte red cube clearly visible on the image-left side, one large matte blue sphere clearly visible on the image-right side, clean neutral studio floor, simple uncluttered composition, no text",
+    "negative": "busy background, scenery clutter, text, logo, watermark, monochrome props, low contrast props"
+  }
+}
