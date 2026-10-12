@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "document_type": "local-rag/json-part",
+  "part_id": "replace.camera_composition",
+  "version": 1,
+  "part_type": "camera_composition",
+  "name": "Replace with camera/composition delta name",
+  "status": "staging",
+  "aliases": [],
+  "tags": ["free", "camera_composition"],
+  "payload": {
+    "generation": {
+      "positive": "replace with only framing, crop, camera angle, perspective and subject-placement requirements for this Part",
+      "negative": "replace with only camera/composition exclusions relevant to this Part"
+    },
+    "structured": {
+      "application": {
+        "mode": "delta",
+        "preserve_unspecified": true
+      },
+      "framing": null,
+      "crop": null,
+      "camera_angle": null,
+      "camera_elevation": null,
+      "perspective": null,
+      "subject_placement": null,
+      "explicit_overrides": [],
+      "must_not_define": [
+        "skeletal_pose",
+        "character_appearance",
+        "outfit",
+        "expression",
+        "background_content",
+        "rendering",
+        "lineart"
+      ]
+    }
+  },
+  "provenance": {
+    "source_type": "local-ai-learning",
+    "source_ref": ""
+  }
+}
