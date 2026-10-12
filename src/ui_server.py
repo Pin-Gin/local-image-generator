@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 import traceback
@@ -12,7 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 from chat_contract import build_generation_request, list_profile_ids
 from generation_bridge import run_chat_generation
-from json_parts import json_part_filename, resolve_json_part_store, validate_json_part
+from json_part_sync import accept_staged_json_part, stage_json_part
 from learning_registry import load_registry, resolve_registry_path, select_assets_with_local_ai
 from local_ai_client import LocalAIClient, load_local_ai_config
 from local_ai_tools import LocalAIToolbox
@@ -269,18 +268,36 @@ class Handler(SimpleHTTPRequestHandler):
         document = payload.get("document")
         if not isinstance(document, dict):
             raise ValueError("document must be a JSON object")
-        part = validate_json_part(document)
-        store = resolve_json_part_store(ROOT)
-        if part["status"] == "accepted":
-            target_dir = store
-        else:
-            target_dir = store.parent / "staging"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        filename = json_part_filename(part["part_id"], part["version"])
-        target = target_dir / filename
-        raw = json.dumps(part, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n"
-        target.write_bytes(raw)
-        digest = hashlib.sha256(raw).hexdigest()
+        accept_requested = payload.get("accept", False)
+        if not isinstance(accept_requested, bool):
+            raise ValueError("accept must be a boolean")
+        if document.get("status") != "staging":
+            raise ValueError("application-managed JSON Part persistence requires status='staging'")
+
+        staged = stage_json_part(ROOT, document, enforce_free_role=True)
+        if not accept_requested:
+            self._send_json(
+                HTTPStatus.OK,
+                {
+                    "json_part": {
+                        "ref": staged.ref,
+                        "status": "staging",
+                        "part_type": staged.part_type,
+                        "path": str(staged.path),
+                        "sha256": staged.sha256,
+                        "payload_sha256": staged.payload_sha256,
+                        "oracle_indexed": False,
+                    }
+                },
+            )
+            return
+
+        accepted = accept_staged_json_part(
+            ROOT,
+            staged.ref,
+            expected_sha256=staged.sha256,
+            enforce_free_role=True,
+        )
 
         oracle_indexed = False
         oracle_error: str | None = None
@@ -288,7 +305,10 @@ class Handler(SimpleHTTPRequestHandler):
         store_db = OracleKnowledgeStore(ROOT)
         if store_db.configured():
             try:
-                oracle_result = store_db.upsert_json_part(part, file_path=str(target))
+                oracle_result = store_db.upsert_json_part(
+                    accepted.accepted_document,
+                    file_path=str(accepted.accepted_path),
+                )
                 oracle_indexed = True
             except Exception as exc:
                 oracle_error = str(exc) or exc.__class__.__name__
@@ -297,10 +317,15 @@ class Handler(SimpleHTTPRequestHandler):
             HTTPStatus.OK,
             {
                 "json_part": {
-                    "ref": f"part:{part['part_id']}@{part['version']}",
-                    "status": part["status"],
-                    "path": str(target),
-                    "sha256": digest,
+                    "ref": accepted.ref,
+                    "status": "accepted",
+                    "part_type": accepted.part_type,
+                    "path": str(accepted.accepted_path),
+                    "sha256": accepted.accepted_sha256,
+                    "staged_sha256": accepted.staged_sha256,
+                    "payload_sha256": accepted.payload_sha256,
+                    "semantic_preservation": "status-only",
+                    "receipt_path": str(accepted.receipt_path),
                     "oracle_indexed": oracle_indexed,
                     "oracle": oracle_result,
                     "oracle_error": oracle_error,
