@@ -57,6 +57,14 @@ def main() -> int:
             raise AssertionError("bootstrap document was not accepted")
         if document.get("part_type") != "background_scene":
             raise AssertionError("bootstrap document has wrong part_type")
+        structured = document.get("payload", {}).get("structured", {})
+        application = structured.get("application", {})
+        if application.get("mode") != "delta":
+            raise AssertionError("bootstrap background must use delta application mode")
+        if application.get("preserve_unspecified") is not True:
+            raise AssertionError("bootstrap background must preserve unspecified details")
+        if "rendering_technique" not in structured.get("must_not_define", []):
+            raise AssertionError("bootstrap background must not own rendering technique")
         if receipt.get("ref") != "part:free.test.background_scene@1":
             raise AssertionError("receipt ref mismatch")
         if receipt.get("semantic_change") != "status: staging -> accepted only":
@@ -64,6 +72,7 @@ def main() -> int:
 
         print("[FREE-JSON-RESET:DELETE-OLD:OK]")
         print("[FREE-JSON-RESET:BOOTSTRAP-PART:OK]")
+        print("[FREE-JSON-RESET:BOOTSTRAP-SLOT-CONTRACT:OK]")
         print("[FREE-JSON-RESET:BOOTSTRAP-RECEIPT:OK]")
         print("[FREE-JSON-RESET:TEST:OK]")
         return 0
