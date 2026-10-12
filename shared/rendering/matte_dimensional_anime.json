@@ -1,59 +1,210 @@
 {
   "schema_version": 1,
   "rendering_id": "matte-dimensional-anime-v1",
-  "rendering_version": 3,
+  "rendering_version": 4,
   "name": "Matte Dimensional Anime",
-  "description": "2Dアニメを基礎にしつつ、3Dアニメ寄りの明確な立体感・奥行き・面のボリュームを優先する。人物・物体・背景を平面的に処理せず、光と影で形状と空間を明確に分離する。表面はマットで、強い光沢や実写的な肌質、PBR的な質感は避ける。学習済みレンダリングLoRAが有効な場合はPromptよりLoRAを優先して共有レンダリングを固定する。",
-  "medium": "2D anime foundation with pronounced 3D-anime-like dimensionality and volumetric form",
+  "description": "FREE共通の最優先Drawing-Method Authority。2Dアニメを明確な基盤にし、実写ではなくリアルアニメ寄りの形状理解、マットな表面反応、読みやすい面の陰影、前景から背景までの空間分離、わずかな3Dアニメ的立体感を同時に固定する。意味内容・人物同一性・ポーズ・カメラ・背景内容は奪わず、それらを最終的にどう描画するかだけを強く支配する。輪郭の最終強度は独立Lineart Authorityへ委譲する。",
+  "authority_contract": {
+    "role": "drawing_method",
+    "priority": "highest_within_rendering_domain",
+    "owns": [
+      "anime_vs_photoreal rendering basis",
+      "matte material response",
+      "form modeling and volumetric readability",
+      "shading behavior",
+      "light-to-form response",
+      "spatial depth rendering",
+      "slight 3D-anime dimensionality",
+      "surface polish and visual cohesion"
+    ],
+    "does_not_own": [
+      "character identity",
+      "explicit character/body deltas",
+      "outfit semantics",
+      "facial expression semantics",
+      "skeletal pose",
+      "camera/composition semantics",
+      "background/scene semantics",
+      "final contour strength"
+    ],
+    "conflict_policy": {
+      "appearance": "defer to MAIN image except explicit role-bound JSON deltas",
+      "pose": "defer to POSE image and DWPose/OpenPose ControlNet",
+      "content": "defer to the five role-bound JSON slots",
+      "camera": "defer to camera_composition JSON slot",
+      "scene": "defer to background_scene JSON slot",
+      "line_strength": "defer to Lineart Authority",
+      "drawing_method": "this Rendering Authority wins"
+    }
+  },
+  "conditioning": {
+    "default_strength": 1.4,
+    "recommended_min": 1.25,
+    "recommended_max": 1.6,
+    "intent": "strong persistent drawing-method conditioning without replacing semantic authorities"
+  },
+  "target_definition": {
+    "anime_foundation": {
+      "target": "polished 2D anime illustration",
+      "required": [
+        "clearly illustrated/anime image",
+        "clean stylized shapes",
+        "anime facial and hair language",
+        "cohesive illustration finish"
+      ],
+      "reject": [
+        "live-action appearance",
+        "photoreal human texture",
+        "raw 3D render",
+        "CGI-first appearance"
+      ]
+    },
+    "real_anime_form": {
+      "target": "realistic-anime form logic without photoreal surface texture",
+      "required": [
+        "readable cheek, nose, jaw and neck planes",
+        "readable torso and limb volume",
+        "hair grouped into dimensional masses rather than flat ribbons",
+        "clothing folds that describe underlying form",
+        "anatomical mass remains understandable under stylization"
+      ],
+      "reject": [
+        "featureless flat facial planes",
+        "paper-flat limbs or torso",
+        "volume implied only by outline",
+        "photographic pores or realistic skin microtexture"
+      ]
+    },
+    "matte_material_response": {
+      "target": "matte, low-gloss, non-plastic surface behavior",
+      "required": [
+        "restrained specular highlights",
+        "broad soft highlight response",
+        "matte anime skin",
+        "matte fabric response",
+        "controlled hair highlights"
+      ],
+      "reject": [
+        "plastic shine",
+        "wet-look skin",
+        "metallic/PBR dominance",
+        "waxy CGI skin",
+        "hard glossy hotspot dominance"
+      ]
+    },
+    "dimensional_shading": {
+      "target": "soft-to-medium anime shading that clearly models form",
+      "required": [
+        "light separates major form planes",
+        "contact shadow where forms meet",
+        "soft ambient fill prevents crushed black regions",
+        "shadows remain stylized and clean",
+        "gradients support volume without becoming painterly"
+      ],
+      "reject": [
+        "single flat cel-shadow band as the only depth cue",
+        "muddy painterly blending",
+        "washed-out shadow structure",
+        "shadow noise"
+      ]
+    },
+    "depth_and_space": {
+      "target": "clear spatial layering and perspective depth",
+      "required": [
+        "subject separates from background",
+        "foreground, subject, midground and background remain readable when present",
+        "perspective and scale reinforce depth",
+        "local contrast decreases naturally with distance where scene-appropriate",
+        "background belongs to the same dimensional visual world as the subject"
+      ],
+      "reject": [
+        "flat poster-like stacking",
+        "background pasted directly behind the subject",
+        "watercolor wash used as depth substitute",
+        "indistinct spatial planes"
+      ]
+    },
+    "slight_3d_anime_dimensionality": {
+      "target": "mild modeled 3D-anime feeling while remaining unmistakably 2D illustration",
+      "required": [
+        "rounded but stylized form transitions",
+        "subtle modeled depth around face and body",
+        "consistent light direction across forms",
+        "enough dimensionality to avoid flatness"
+      ],
+      "reject": [
+        "raw game-engine render",
+        "realistic CGI character",
+        "PBR asset appearance",
+        "over-modeled photoreal facial structure"
+      ]
+    },
+    "edge_support": {
+      "target": "preserve clean readable boundaries so Lineart Authority can remain effective",
+      "required": [
+        "face, hair, body and clothing boundaries stay legible",
+        "shading does not dissolve silhouettes",
+        "interior form edges stay controlled"
+      ],
+      "reject": [
+        "painterly edge loss",
+        "blurred silhouette",
+        "over-soft boundaries"
+      ],
+      "final_contour_strength_owner": "Lineart Authority"
+    }
+  },
+  "medium": "polished 2D anime illustration with realistic-anime form logic, matte surfaces, strong spatial depth and slight 3D-anime dimensionality",
   "line": {
-    "weight": "medium-fine",
-    "softness": "soft and subordinate to form",
-    "detail": "restrained, avoid heavy outline dominance"
+    "weight": "delegated to Lineart Authority",
+    "softness": "rendering must preserve edges but not decide final contour strength",
+    "detail": "clean readable boundaries; no painterly edge dissolution"
   },
   "shading": {
-    "style": "strong dimensional anime shading with smooth volumetric gradients and readable form planes",
-    "shadow_softness": "medium-soft with defined form separation",
-    "highlight_style": "restrained matte highlights",
-    "facial_planes": "soft but clearly modeled cheeks, nose, jaw, and eye sockets"
+    "style": "dimensional anime shading with clean soft-to-medium gradients and readable form planes",
+    "shadow_softness": "medium-soft with defined contact and form separation",
+    "highlight_style": "restrained broad matte highlights",
+    "facial_planes": "soft but clearly modeled cheeks, nose, jaw, neck and eye-region structure"
   },
   "color": {
-    "saturation": "slightly restrained",
-    "contrast": "medium to moderately strong",
-    "temperature": "neutral"
+    "saturation": "slightly restrained to balanced",
+    "contrast": "medium to moderately strong with local form contrast",
+    "temperature": "scene-neutral; semantic scene lighting may shift it"
   },
   "lighting": {
-    "style": "soft cinematic dimensional lighting",
-    "softness": "soft",
-    "ambient_light": "present with global-illumination-like fill",
-    "rim_light": "subtle only when scene-appropriate",
-    "form_priority": "lighting must describe volume and separate planes"
+    "style": "soft cinematic anime lighting used to describe form rather than create photorealism",
+    "softness": "soft-to-medium",
+    "ambient_light": "present as clean fill",
+    "rim_light": "subtle and scene-dependent only",
+    "contact_shadow": "present where forms meet",
+    "form_priority": "lighting must make major planes and volumes readable"
   },
   "materials": {
     "surface": "matte",
-    "skin": "smooth matte anime skin with modeled volume, no photoreal skin texture",
-    "hair": "dimensional anime hair masses with controlled highlights and visible strand grouping",
-    "fabric": "matte fabric with readable folds and volume, not PBR"
+    "skin": "smooth matte anime skin with modeled volume and no photoreal microtexture",
+    "hair": "dimensional anime hair masses with controlled grouped highlights",
+    "fabric": "matte fabric with readable folds and underlying volume; not PBR"
   },
   "depth": {
-    "style": "strong spatial depth",
+    "style": "strong readable spatial depth",
     "volume_strength": "strong",
-    "target": "clear 3D-anime-like volume while remaining stylized anime",
-    "scene_layers": "clear foreground, subject, midground, and background separation"
+    "target": "clear dimensional anime volume while remaining 2D illustration",
+    "scene_layers": "foreground, subject, midground and background are visually separable when present"
   },
   "background": {
-    "rendering": "same dimensional visual world as foreground",
-    "depth": "clear foreground-midground-background separation with readable perspective",
-    "detail": "avoid watercolor wash; keep forms spatially defined"
+    "rendering": "same matte dimensional anime visual world as foreground",
+    "depth": "perspective, scale and local contrast maintain clear spatial separation",
+    "detail": "forms remain spatially defined; avoid watercolor/painterly wash"
   },
   "quality": {
     "detail_level": "medium-high",
     "edge_cleanliness": "clean",
     "noise": "low",
-    "sharpness": "balanced"
+    "sharpness": "balanced; form readable without digital oversharpening"
   },
   "prompt": {
-    "positive": "mdanime_style, Matte Dimensional Anime, stylized anime with pronounced 3D-anime-like dimensionality, strong dimensional form, clear volumetric shading, modeled facial planes, visible volume in cheeks nose jaw neck arms torso and legs, soft cinematic lighting that describes form, soft global-illumination-like fill, matte surface response, restrained specular highlights, clear spatial depth, strong foreground subject midground background separation, cinematic spatial depth, clean dimensional anime rendering",
-    "negative": "photorealistic, live-action, realistic human skin texture, glossy CGI, plastic-like CGI, PBR materials, excessive specular highlights, waxy skin, flat anime shading, flat cel shading, flat facial planes, flat composition, watercolor illustration, painterly wash, sketch-like rendering, washed-out depth, weak volumetric shading, overly soft undefined forms"
+    "positive": "mdanime_style, polished 2D anime illustration, refined realistic-anime form, matte dimensional anime rendering, clear modeled facial planes, readable cheeks nose jaw neck torso arms and legs, dimensional grouped hair masses, clean clothing folds that describe form, soft-to-medium volumetric anime shading, defined contact shadows, soft ambient fill, consistent form-describing light, matte skin, matte fabric, restrained broad highlights, controlled hair highlights, low-gloss surface response, clear subject-background separation, readable foreground subject midground background layers, strong perspective depth, slight 3D-anime dimensionality while remaining 2D illustration, clean controlled boundaries, cohesive dimensional anime finish",
+    "negative": "photorealistic, live-action, realistic human skin texture, skin pores, raw 3D render, realistic CGI character, game-engine render, glossy CGI, plastic-like surface, PBR materials, metallic skin, wet skin, waxy skin, excessive specular highlights, hard glossy hotspots, flat anime shading, flat cel shading only, flat facial planes, paper-flat body, flat poster composition, pasted background, watercolor wash, painterly edge loss, muddy blending, washed-out shadows, weak volumetric form, blurry silhouette, undefined forms, over-modeled photoreal facial structure"
   },
   "generation": {
     "checkpoint": "sd_xl_base_1.0.safetensors",
