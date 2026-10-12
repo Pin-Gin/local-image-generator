@@ -137,4 +137,4 @@ Download-Asset -Url $IPAdapterUrl -Target $IPAdapterTarget -MinimumBytes 1000000
 Download-Asset -Url $ClipVisionUrl -Target $ClipVisionTarget -MinimumBytes 500000000
 
 Write-Host "[IPADAPTER:INSTALL:OK]"
-Write-Host "[NEXT] Fully restart ComfyUI, then run .\tools\python312\python.exe .\src\ipadapter_capability_test.py"
+Write-Host "[NEXT] Fully restart ComfyUI, then run .\tools\python312\python.exe .\tests\capabilities\ipadapter_capability_test.py"
