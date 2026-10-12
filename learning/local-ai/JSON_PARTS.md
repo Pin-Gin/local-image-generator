@@ -2,9 +2,7 @@
 
 ## 1. Naming
 
-A reusable part has a stable `part_id` and an integer `version`.
-
-Canonical call syntax:
+A reusable Part has a stable `part_id` and integer `version`.
 
 ```text
 part:<part_id>@<version>
@@ -12,36 +10,49 @@ part:<part_id>@<version>
 
 Rules:
 
-- `part_id`: lowercase ASCII, digits, `.`, `_`, `-`; no `/` or path separators.
+- `part_id`: lowercase ASCII, digits, `.`, `_`, `-`; no path separators.
 - `version`: positive integer.
-- A changed canonical payload should create a new version rather than silently overwriting an accepted older version.
-- Generation records store the exact resolved reference.
+- An accepted payload is immutable for that version. Changed content creates a new version.
+- FREE generation stores/resolves exact Part refs; it does not ask Qwen to reinterpret them.
 
-Examples:
+## 2. FREE production roles
+
+The user-facing FREE contract has at most five content Part slots:
 
 ```text
-part:pose.hair-touch@1
-part:camera.three-quarter@2
-part:outfit.school-uniform-summer@3
+character_body
+outfit_prop
+expression_face
+camera_composition
+background_scene
 ```
 
-## 2. Canonical document shape
+`Rendering` and `Lineart` are separate profile authorities and are not members of these five Part slots.
+
+The lower-level Part loader may still read older/manual Part types for compatibility, but the new FREE staging/acceptance sync gate accepts only the five production roles above unless an explicit maintenance command opts out.
+
+## 3. Canonical candidate shape
+
+Local AI should emit canonical application-managed candidates with `status: staging`.
 
 ```json
 {
   "schema_version": 1,
   "document_type": "local-rag/json-part",
-  "part_id": "pose.hair-touch",
+  "part_id": "body.example",
   "version": 1,
-  "part_type": "pose",
-  "name": "Hair touch pose",
-  "status": "accepted",
-  "aliases": ["髪に手を添える"],
-  "tags": ["pose", "hand"],
+  "part_type": "character_body",
+  "name": "Example body definition",
+  "status": "staging",
+  "aliases": [],
+  "tags": ["free"],
   "payload": {
     "generation": {
-      "positive": "one hand gently touching the hair, relaxed elbow",
-      "negative": "merged fingers, broken wrist"
+      "positive": "generation-ready positive representation",
+      "negative": "generation-ready negative representation"
+    },
+    "structured": {
+      "any": "additional detailed structured data may remain here"
     }
   },
   "provenance": {
@@ -51,114 +62,19 @@ part:outfit.school-uniform-summer@3
 }
 ```
 
-Canonical documents keep their identity/status inside the JSON and remain the preferred format for application-managed persistence and Oracle indexing.
+The local AI must not set `accepted` itself. Acceptance is a separate application/user action.
 
-## 3. Manual structured JSON compatibility
-
-Files manually placed in the accepted `json-parts` directory may use a simpler structured JSON shape without the canonical `local-rag/json-part` wrapper.
-
-Example:
-
-```json
-{
-  "file_name": "anime_pose_hair_touch.v1.json",
-  "description": "anime hair-touch pose data",
-  "pose": {
-    "type": "hair-touch",
-    "character": {
-      "gender": "female",
-      "hair_color": "blonde",
-      "eye_color": "blue"
-    },
-    "hands": {
-      "left_hand": "touching hair",
-      "right_hand": "crossed over chest"
-    },
-    "camera_composition": "full-body shot"
-  }
-}
-```
-
-For this manual compatibility path:
-
-- identity/version comes from the filename and requested ref;
-- `anime_pose_hair_touch.v1.json` resolves as `part:anime_pose_hair_touch@1`;
-- when `file_name` exists inside the JSON, it must match the actual canonical filename case-insensitively;
-- `description` becomes display metadata only and is not injected into generation content;
-- UTF-8 BOM-prefixed files are accepted;
-- a whole-file Markdown fence such as ` ```json ... ``` ` is accepted;
-- the source file is never rewritten by the read path;
-- when no explicit top-level `positive` exists, nested scalar content is linearized into the internal positive prompt using **dotted hierarchy paths**;
-- original scalar values, traversal order, and duplicate leaves are retained;
-- optional top-level `positive` overrides automatic hierarchy linearization;
-- optional top-level `negative` or `negative_prompt` becomes the negative generation prompt;
-- the file is generation-eligible because it physically lives in the accepted `json-parts` store;
-- the loader does not automatically register a manual compatibility file into Oracle.
-
-Example conversion:
-
-```json
-{
-  "pose": {
-    "body": {
-      "state": "nude"
-    },
-    "expression": "smiling"
-  }
-}
-```
-
-becomes an internal positive string containing:
+## 4. Storage lifecycle
 
 ```text
-pose.body.state: nude, pose.expression: smiling
+local AI / authored candidate
+-> learning/local-ai/store/staging/
+-> structural + role validation
+-> SHA256 gate
+-> explicit acceptance
+-> learning/local-ai/store/json-parts/
+-> FREE exact Part reference
 ```
-
-The strict canonical schema is still required for the explicit application-managed `Part登録` / `Part採用` persistence path. Manual compatibility is a generation-read feature, not a relaxation of the canonical persistence contract.
-
-## 4. Generation reuse
-
-Canonical parts currently expose `payload.generation`:
-
-- `positive`: appended/combined with positive generation content.
-- `negative`: appended/combined with negative generation content.
-
-Manual structured parts are converted at read time into the same internal positive/negative representation.
-
-Generation JSON references exact parts through `parts`:
-
-```json
-{
-  "positive": "silver-haired woman in a park",
-  "negative": "low quality",
-  "parts": [
-    "part:pose.hair-touch@1"
-  ]
-}
-```
-
-Manual file example:
-
-```text
-learning/local-ai/store/json-parts/anime_pose_hair_touch.v1.json
-```
-
-is referenced as:
-
-```json
-{
-  "positive": "anime character",
-  "parts": [
-    "part:anime_pose_hair_touch@1"
-  ]
-}
-```
-
-Current `chat_contract.py` resolves explicit `parts` references and merges their internal positive/negative strings into `prompt_input`.
-
-Important: automatic selection of JSON Parts from the directory is **not** current behavior. A Part is used only when the request explicitly references it, unless a future design explicitly adds another selection mechanism.
-
-## 5. Storage
 
 Accepted local files:
 
@@ -172,32 +88,128 @@ Staging files:
 learning/local-ai/store/staging/<part_id>.v<version>.json
 ```
 
-Canonical accepted parts may also be mirrored/indexed in Oracle table `LR_JSON_PART`.
-
-Manual structured compatibility files are local-file generation assets unless they are separately converted/registered through the canonical persistence path.
-
-## 6. Local read verification
-
-Verify a Part without starting ComfyUI:
-
-```powershell
-.\tools\python312\python.exe .\src\json_part_read_test.py --ref part:anime_pose_hair_touch@1
-```
-
-Expected first line:
+Acceptance receipts are runtime-local audit records under:
 
 ```text
-[JSON-PART:READ:OK] ref=part:anime_pose_hair_touch@1
+learning/local-ai/store/receipts/
 ```
 
-This verifies resolution and internal positive/negative conversion only. It does not by itself prove the full desktop -> compiler -> ComfyUI generation path.
+The receipts directory is runtime state and is ignored by Git.
 
-## 7. Current architecture note
+## 5. Mechanical sync / integrity guarantee
 
-The current target architecture is recorded in:
+`src/json_part_sync.py` is the canonical staging/acceptance utility for the new FREE content workflow.
+
+It validates mechanically rather than semantically rewriting content:
+
+```text
+valid canonical JSON Part
+schema/document identity
+part_id/version/filename identity
+status
+FREE role / part_type
+staging SHA256
+payload semantic SHA256
+accepted target collision/version safety
+```
+
+Acceptance changes only:
+
+```text
+status: staging -> accepted
+```
+
+All other parsed document content must have the same semantic SHA256 before/after acceptance. The payload has its own SHA256 check and the receipt records staging/accepted/payload hashes.
+
+If an accepted `<part_id>@<version>` already exists, the sync utility rejects overwrite. Create a new version instead.
+
+### Stage a local-AI JSON file
+
+```powershell
+.\tools\python312\python.exe .\src\json_part_sync.py stage-file "C:\path\candidate.json"
+```
+
+The output includes:
+
+```text
+[JSON-SYNC:STAGE:OK]
+[JSON-SYNC:STAGE:SHA256]
+[JSON-SYNC:PAYLOAD:SHA256]
+```
+
+### Validate without printing payload content
+
+```powershell
+.\tools\python312\python.exe .\src\json_part_sync.py validate --ref part:<part_id>@<version>
+```
+
+This prints identity/role/hashes only. It does not print the semantic payload.
+
+### Accept with a hash gate
+
+Use the SHA returned by staging/validation:
+
+```powershell
+.\tools\python312\python.exe .\src\json_part_sync.py accept `
+  --ref part:<part_id>@<version> `
+  --expected-sha256 <STAGING_SHA256>
+```
+
+Successful acceptance includes:
+
+```text
+[JSON-SYNC:ACCEPT:OK]
+[JSON-SYNC:SEMANTIC-PRESERVATION:OK] status-only change
+```
+
+This CLI currently performs local file-store promotion. Oracle/UI integration of this exact hash-gated acceptance path is a separate next step.
+
+## 6. Manual structured JSON compatibility
+
+Files manually placed in the accepted `json-parts` directory may still use the older simple structured JSON shape without the canonical wrapper.
+
+For this compatibility path:
+
+- identity/version comes from filename + requested ref;
+- optional `file_name` must match the canonical filename;
+- UTF-8 BOM and a whole-file Markdown JSON fence are accepted;
+- the source file is never rewritten by the read path;
+- without an explicit top-level `positive`, nested scalar content is linearized into dotted hierarchy paths;
+- scalar values, traversal order and duplicate leaves are retained;
+- optional `positive`, `negative`, or `negative_prompt` override/define generation strings;
+- it is generation-eligible because it physically lives in the accepted store;
+- it is not automatically mirrored into Oracle.
+
+This is compatibility/read behavior. New local-AI-managed FREE Parts should use the canonical staging -> accept flow above.
+
+## 7. Generation reuse
+
+Canonical Parts expose `payload.generation.positive/negative` to the existing Part loader. FREE production will ultimately bind exact refs to the five named slots defined in `schemas/free_generation_input.schema.json`.
+
+The lower-level historical `parts: []` mechanism remains for compatibility/internal use, but the production UI must not become an unlimited unordered Part list.
+
+## 8. Verification
+
+Sync integrity test:
+
+```powershell
+.\tools\python312\python.exe .\tests\integration\json_part_sync_test.py
+```
+
+The expected final marker is:
+
+```text
+[JSON-SYNC:TEST:OK]
+```
+
+Existing accepted-Part read verification remains available through the current JSON Part read test until that historical test is migrated from `src/`.
+
+## 9. Architecture authority
+
+Current continuation decisions are in:
 
 ```text
 docs/handoff/LOCAL_RAG_HANDOFF.md
 ```
 
-FREE generation is being moved toward deterministic JSON Part consumption without Qwen pre-generation interpretation/asset selection. MEMORIELA and LEARN retain local-AI responsibilities.
+FREE generation remains deterministic/no-Qwen. MEMORIELA and LEARN retain their separate AI responsibilities.
