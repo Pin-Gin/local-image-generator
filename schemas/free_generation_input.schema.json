@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-rag.invalid/schemas/free_generation_input.schema.json",
+  "title": "local-RAG FREE Generation Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "main_image",
+    "pose_image",
+    "parts",
+    "rendering_profile",
+    "lineart_profile"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "main_image": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path under references/free/main. Appearance authority through IP-Adapter."
+    },
+    "pose_image": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path under references/free/pose. Pose authority through DWPose/OpenPose ControlNet."
+    },
+    "parts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "character_body",
+        "outfit_prop",
+        "expression_face",
+        "camera_composition",
+        "background_scene"
+      ],
+      "properties": {
+        "character_body": {
+          "$ref": "#/$defs/optionalPartRef"
+        },
+        "outfit_prop": {
+          "$ref": "#/$defs/optionalPartRef"
+        },
+        "expression_face": {
+          "$ref": "#/$defs/optionalPartRef"
+        },
+        "camera_composition": {
+          "$ref": "#/$defs/optionalPartRef"
+        },
+        "background_scene": {
+          "$ref": "#/$defs/optionalPartRef"
+        }
+      }
+    },
+    "rendering_profile": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Rendering Authority profile. Separate from the five content slots."
+    },
+    "lineart_profile": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Lineart Authority profile. Separate from the five content slots."
+    }
+  },
+  "$defs": {
+    "partRef": {
+      "type": "string",
+      "pattern": "^part:[a-z0-9][a-z0-9._-]{1,127}@[1-9][0-9]*$"
+    },
+    "optionalPartRef": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/partRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
