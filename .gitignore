@@ -6,6 +6,12 @@ outputs/*
 logs/*
 !logs/.gitkeep
 
+# Local FREE reference images
+references/free/main/*
+!references/free/main/.gitkeep
+references/free/pose/*
+!references/free/pose/.gitkeep
+
 # Local database files
 database/*.db
 database/*.sqlite
