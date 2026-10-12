@@ -7,6 +7,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = ROOT / "src"
@@ -24,12 +25,12 @@ CONFIG_PATH = ROOT / "config" / "app.example.json"
 PROFILE_PATH = ROOT / "profiles" / "free_sdxl_v1.json"
 RENDERING_PATH = ROOT / "shared" / "rendering" / "matte_dimensional_anime.json"
 LINEART_PATH = ROOT / "shared" / "lineart" / "strong_anime_lineart.json"
+DIAGNOSTIC_FIXTURE_PATH = ROOT / "tests" / "fixtures" / "json-parts" / "diagnostic.authority_probe.v1.json"
 POSE_MODEL = "SDXL/controlnet-openpose-sdxl-1.0/diffusion_pytorch_model.safetensors"
 SUPPORTED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
-DEFAULT_DIAGNOSTIC_PART = "part:diagnostic.authority_probe@1"
 
 
-def _load_json(path: Path) -> dict:
+def _load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError(f"expected JSON object: {path}")
@@ -56,68 +57,68 @@ def _image_arg(value: str) -> Path:
     return path
 
 
+def _load_content(part_ref: str | None) -> dict[str, Any]:
+    if part_ref:
+        part = load_json_part(ROOT, part_ref)
+        return {
+            "kind": "accepted-json-part",
+            "ref": part.ref,
+            "path": str(part.path),
+            "sha256": part.sha256,
+            "positive": part.positive,
+            "negative": part.negative,
+        }
+
+    fixture = _load_json(DIAGNOSTIC_FIXTURE_PATH)
+    generation = fixture.get("generation")
+    if not isinstance(generation, dict):
+        raise RuntimeError("diagnostic fixture generation must be an object")
+    positive = generation.get("positive")
+    negative = generation.get("negative", "")
+    if not isinstance(positive, str) or not positive.strip():
+        raise RuntimeError("diagnostic fixture generation.positive must be non-empty")
+    if not isinstance(negative, str):
+        raise RuntimeError("diagnostic fixture generation.negative must be a string")
+    return {
+        "kind": "diagnostic-fixture",
+        "ref": None,
+        "path": str(DIAGNOSTIC_FIXTURE_PATH),
+        "sha256": _sha256(DIAGNOSTIC_FIXTURE_PATH),
+        "positive": positive,
+        "negative": negative,
+    }
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Experimental FREE authority split: source image -> IP-Adapter appearance, "
-            "pose image -> DWPose/OpenPose ControlNet, JSON Part -> exact content, "
-            "shared Matte Dimensional Anime -> rendering, strong lineart conditioning -> contours. "
-            "No local LLM is used."
+            "Experimental FREE authority split: main image -> IP-Adapter appearance, "
+            "pose image -> DWPose/OpenPose ControlNet, JSON -> content, "
+            "Matte Dimensional Anime -> rendering, strong lineart -> contours. "
+            "No local LLM is used during generation."
         )
     )
     parser.add_argument("source_image", type=_image_arg)
     parser.add_argument("pose_image", type=_image_arg)
     parser.add_argument(
         "--part",
-        default=DEFAULT_DIAGNOSTIC_PART,
-        help=f"Accepted JSON Part ref. Default: {DEFAULT_DIAGNOSTIC_PART}",
+        default=None,
+        help=(
+            "Optional accepted JSON Part ref. If omitted, the tracked authority diagnostic fixture under "
+            "tests/fixtures/json-parts is used."
+        ),
     )
-    parser.add_argument(
-        "--ip-weight",
-        type=float,
-        default=0.75,
-        help="IP-Adapter appearance weight. Lowered from the first experiment so pose control has more room. Default: 0.75",
-    )
-    parser.add_argument(
-        "--ip-start",
-        type=float,
-        default=0.30,
-        help="IP-Adapter start percentage. Later start lets DWPose establish body structure first. Default: 0.30",
-    )
-    parser.add_argument(
-        "--pose-strength",
-        type=float,
-        default=1.20,
-        help="OpenPose ControlNet strength. Default: 1.20",
-    )
-    parser.add_argument(
-        "--rendering-strength",
-        type=float,
-        default=1.25,
-        help="Prompt weight applied only to Matte Dimensional Anime rendering conditioning. Default: 1.25",
-    )
-    parser.add_argument(
-        "--lineart-strength",
-        type=float,
-        default=1.65,
-        help="Strong Anime Lineart conditioning strength. Default: 1.65",
-    )
-    parser.add_argument(
-        "--steps",
-        type=int,
-        default=28,
-        help="KSampler steps for this multi-conditioning diagnostic. Default: 28",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=975311,
-        help="KSampler seed. Default: 975311",
-    )
+    parser.add_argument("--ip-weight", type=float, default=0.75)
+    parser.add_argument("--ip-start", type=float, default=0.30)
+    parser.add_argument("--pose-strength", type=float, default=1.20)
+    parser.add_argument("--rendering-strength", type=float, default=1.25)
+    parser.add_argument("--lineart-strength", type=float, default=1.65)
+    parser.add_argument("--steps", type=int, default=28)
+    parser.add_argument("--seed", type=int, default=975311)
     parser.add_argument(
         "--repeat-check",
         action="store_true",
-        help="Run the exact same workflow twice and report whether output file SHA256 is identical.",
+        help="Run the exact same workflow twice and compare output SHA256.",
     )
     return parser.parse_args()
 
@@ -143,7 +144,7 @@ def main() -> int:
     profile = _load_json(PROFILE_PATH)
     rendering = _load_json(RENDERING_PATH)
     lineart = _load_json(LINEART_PATH)
-    part = load_json_part(ROOT, args.part)
+    content = _load_content(args.part)
 
     comfyui = config.get("comfyui")
     if not isinstance(comfyui, dict):
@@ -180,9 +181,8 @@ def main() -> int:
     workflow["denoise"] = 1.0
 
     rendering_for_plan = copy.deepcopy(rendering)
-    base_rendering_positive = rendering_for_plan["prompt"]["positive"]
     rendering_for_plan["prompt"]["positive"] = _weighted_prompt(
-        base_rendering_positive,
+        rendering_for_plan["prompt"]["positive"],
         args.rendering_strength,
     )
 
@@ -212,8 +212,8 @@ def main() -> int:
     }
 
     plan = build_free_generation_engine_plan(
-        content_positive=part.positive,
-        content_negative=part.negative,
+        content_positive=content["positive"],
+        content_negative=content["negative"],
         workflow=workflow,
         shared_rendering=rendering_for_plan,
         lineart_profile=lineart,
@@ -234,18 +234,10 @@ def main() -> int:
     )
 
     workflow_json = compiled.compiled_workflow
-
-    # The deterministic FREE compiler already provides exact JSON content,
-    # stronger shared rendering conditioning, strong lineart conditioning,
-    # optional configured rendering/lineart LoRAs, and DWPose/OpenPose control.
-    # IP-Adapter is inserted only on the MODEL path. The sampler uses a fresh
-    # latent so source-image pose is not carried in through img2img.
     base_model_ref = workflow_json["7"]["inputs"]["model"]
     workflow_json["30"] = {
         "class_type": "LoadImage",
-        "inputs": {
-            "image": source_remote,
-        },
+        "inputs": {"image": source_remote},
     }
     workflow_json["40"] = {
         "class_type": "IPAdapterUnifiedLoader",
@@ -283,11 +275,10 @@ def main() -> int:
     repeat_result = None
     repeat_output_sha = None
     if args.repeat_check:
-        repeat_root = output_root / "repeat"
         repeat_result = run_workflow_and_download(
             base_url=base_url,
             workflow=workflow_json,
-            output_dir=repeat_root,
+            output_dir=output_root / "repeat",
             request_timeout_seconds=request_timeout,
             generation_timeout_seconds=generation_timeout,
         )
@@ -297,7 +288,7 @@ def main() -> int:
     lineart_lora = plan["loras"]["lineart"]
     manifest = {
         "schema_version": 1,
-        "experiment": "free-ipadapter-plus-json-plus-dwpose-strong-render-line-v2",
+        "experiment": "free-ipadapter-plus-json-plus-dwpose-strong-render-line-v3",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "ai_interpretation": False,
         "source_image": {
@@ -308,15 +299,8 @@ def main() -> int:
             "weight": args.ip_weight,
             "start_at": args.ip_start,
             "end_at": 1.0,
-            "preset": "PLUS (high strength)",
         },
-        "json_part": {
-            "ref": part.ref,
-            "path": str(part.path),
-            "sha256": part.sha256,
-            "positive": part.positive,
-            "negative": part.negative,
-        },
+        "content_json": content,
         "pose_control": {
             "source": str(args.pose_image),
             "source_sha256": pose_sha,
@@ -329,29 +313,18 @@ def main() -> int:
         },
         "rendering": {
             "rendering_id": rendering.get("rendering_id"),
-            "conditioning_enabled": True,
             "conditioning_strength": args.rendering_strength,
             "lora_enabled": bool(rendering_lora.get("enabled")),
             "lora_name": rendering_lora.get("lora_name"),
         },
         "lineart": {
-            "enabled": True,
             "conditioning_strength": args.lineart_strength,
             "lora_enabled": bool(lineart_lora and lineart_lora.get("enabled")),
             "lora_name": None if lineart_lora is None else lineart_lora.get("lora_name"),
         },
-        "sampler": {
-            "steps": args.steps,
-            "seed": args.seed,
-        },
-        "latent": {
-            "mode": "fresh-text2img-latent",
-            "denoise": 1.0,
-        },
-        "output": {
-            "path": str(result.output_path),
-            "sha256": first_output_sha,
-        },
+        "sampler": {"steps": args.steps, "seed": args.seed},
+        "latent": {"mode": "fresh-text2img-latent", "denoise": 1.0},
+        "output": {"path": str(result.output_path), "sha256": first_output_sha},
         "repeat_check": None if repeat_result is None else {
             "path": str(repeat_result.output_path),
             "sha256": repeat_output_sha,
@@ -366,7 +339,7 @@ def main() -> int:
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print(f"[FREE:IPADAPTER:SOURCE-UPLOAD:OK] {source_remote}")
-    print(f"[FREE:IPADAPTER:JSON-PART:OK] {part.ref}")
+    print(f"[FREE:IPADAPTER:CONTENT-JSON:OK] {content['kind']} {content['ref'] or content['path']}")
     print(f"[FREE:IPADAPTER:POSE-UPLOAD:OK] {pose_remote}")
     print(f"[FREE:IPADAPTER:APPEARANCE:OK] weight={args.ip_weight:g} start={args.ip_start:g}")
     print(f"[FREE:IPADAPTER:DWPOSE:OK] strength={args.pose_strength:g}")
@@ -379,12 +352,6 @@ def main() -> int:
         "[FREE:IPADAPTER:RENDERING-LORA:{}] {}".format(
             "ON" if rendering_lora.get("enabled") else "OFF",
             rendering_lora.get("lora_name"),
-        )
-    )
-    print(
-        "[FREE:IPADAPTER:LINEART-LORA:{}] {}".format(
-            "ON" if lineart_lora and lineart_lora.get("enabled") else "OFF",
-            None if lineart_lora is None else lineart_lora.get("lora_name"),
         )
     )
     print(f"[FREE:IPADAPTER:FRESH-LATENT:OK] denoise=1 steps={args.steps} seed={args.seed}")
