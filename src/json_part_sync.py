@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from json_parts import json_part_filename, parse_part_ref, resolve_json_part_store, validate_json_part
+from json_parts import json_part_filename, parse_part_ref, validate_json_part
 
 
 FREE_CONTENT_PART_TYPES = frozenset(
@@ -24,6 +24,9 @@ FREE_CONTENT_PART_TYPES = frozenset(
     }
 )
 JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*([\s\S]*?)\s*```$", re.IGNORECASE)
+ACCEPTED_RELATIVE_PATH = Path("learning/local-ai/store/json-parts")
+STAGING_RELATIVE_PATH = Path("learning/local-ai/store/staging")
+RECEIPTS_RELATIVE_PATH = Path("learning/local-ai/store/receipts")
 
 
 @dataclass(frozen=True)
@@ -104,12 +107,16 @@ def _validate_candidate(
     return validated
 
 
+def resolve_accepted_store(resource_root: Path) -> Path:
+    return resource_root.resolve() / ACCEPTED_RELATIVE_PATH
+
+
 def resolve_staging_store(resource_root: Path) -> Path:
-    return resolve_json_part_store(resource_root).parent / "staging"
+    return resource_root.resolve() / STAGING_RELATIVE_PATH
 
 
 def resolve_receipt_store(resource_root: Path) -> Path:
-    return resolve_json_part_store(resource_root).parent / "receipts"
+    return resource_root.resolve() / RECEIPTS_RELATIVE_PATH
 
 
 def stage_json_part(
@@ -126,7 +133,7 @@ def stage_json_part(
     ref = f"part:{validated['part_id']}@{validated['version']}"
     filename = json_part_filename(validated["part_id"], validated["version"])
 
-    accepted_store = resolve_json_part_store(resource_root)
+    accepted_store = resolve_accepted_store(resource_root)
     accepted_path = accepted_store / filename
     if accepted_path.exists():
         raise FileExistsError(
@@ -220,7 +227,7 @@ def accept_staged_json_part(
 
     document = _load_json_object(staged.path)
     part_id, version = parse_part_ref(ref)
-    accepted_store = resolve_json_part_store(resource_root)
+    accepted_store = resolve_accepted_store(resource_root)
     accepted_store.mkdir(parents=True, exist_ok=True)
     accepted_path = accepted_store / json_part_filename(part_id, version)
     if accepted_path.exists():
