@@ -189,4 +189,4 @@ Download-Asset -Url $DWPoseEstimatorUrl -Target $DWPoseEstimatorTarget -MinimumB
 Download-Asset -Url $ControlNetUrl -Target $ControlNetTarget -MinimumBytes 2000000000
 
 Write-Host "[POSE:INSTALL:OK]"
-Write-Host "[NEXT] Restart ComfyUI, then run .\tools\python312\python.exe .\src\pose_control_capability_test.py"
+Write-Host "[NEXT] Restart ComfyUI, then run .\tools\python312\python.exe .\tests\capabilities\pose_control_capability_test.py"
