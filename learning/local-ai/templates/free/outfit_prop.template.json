@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "document_type": "local-rag/json-part",
+  "part_id": "replace.outfit_prop",
+  "version": 1,
+  "part_type": "outfit_prop",
+  "name": "Replace with outfit/prop delta name",
+  "status": "staging",
+  "aliases": [],
+  "tags": ["free", "outfit_prop"],
+  "payload": {
+    "generation": {
+      "positive": "replace with only garments, accessories and associated prop requirements for this Part",
+      "negative": "replace with only outfit/prop exclusions relevant to this Part"
+    },
+    "structured": {
+      "application": {
+        "mode": "delta",
+        "preserve_unspecified": true
+      },
+      "garments": [],
+      "accessories": [],
+      "props": [],
+      "materials_or_finish": [],
+      "explicit_overrides": [],
+      "must_not_define": [
+        "body_shape",
+        "expression",
+        "pose",
+        "camera",
+        "background",
+        "rendering",
+        "lineart"
+      ]
+    }
+  },
+  "provenance": {
+    "source_type": "local-ai-learning",
+    "source_ref": ""
+  }
+}
