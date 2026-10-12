@@ -2,9 +2,9 @@
 
 Last consolidated checkpoint: **2026-10-12 JST**
 
-This file is the **single authoritative continuation document** for a new ChatGPT session working on `Pin-Gin/local-image-generator`.
+This is the **single authoritative continuation document** for `Pin-Gin/local-image-generator`.
 
-Read `START_HERE.md`, then this file completely, then inspect the current `main` branch before changing architecture or implementation. Repository state overrides chat memory. Specialized documents are references only when they do not conflict with this handoff.
+A new chat must read `START_HERE.md`, then this file, then inspect current `main` before changing architecture or implementation. Repository state overrides old chat memory. Specialized documents are references only when consistent with this handoff.
 
 ---
 
@@ -12,38 +12,38 @@ Read `START_HERE.md`, then this file completely, then inspect the current `main`
 
 Use these labels exactly:
 
-- **VERIFIED** — the user supplied successful local runtime evidence or direct local visual observation.
-- **IMPLEMENTED / UNVERIFIED** — code exists in Git but the current path has not been confirmed locally.
-- **NOT IMPLEMENTED** — no complete runtime path exists yet.
-- **TARGET DESIGN** — the user chose the architecture, but code is not yet fully changed to match it.
-- **OPEN** — intentionally undecided.
+- **VERIFIED** — the user supplied successful local runtime/log/visual evidence.
+- **IMPLEMENTED / UNVERIFIED** — code exists in Git but the current path has not been locally confirmed after the change.
+- **NOT IMPLEMENTED** — no complete path exists yet.
+- **TARGET DESIGN** — architecture is chosen but not fully implemented.
+- **OPEN** — intentionally undecided/tunable.
 
 Never promote code existence to VERIFIED.
 
 ---
 
-## 2. Working method / anti-drift rules
+## 2. Working rules / anti-drift
 
 1. Read `START_HERE.md` and this handoff first.
-2. Inspect current `main`; Git state overrides old chat memory.
-3. Keep work incremental and isolate one failing layer at a time.
-4. The user runs and verifies Windows/GPU behavior locally. Remote Git changes are only IMPLEMENTED / UNVERIFIED until the user reports results.
+2. Inspect current `main`; Git state overrides chat memory.
+3. Keep changes incremental and isolate the failing layer before touching unrelated components.
+4. The user runs/verifies Windows/GPU behavior locally. Remote Git edits remain IMPLEMENTED / UNVERIFIED until user evidence arrives.
 5. FREE generation must not silently reintroduce Qwen/local conversational AI.
-6. MEMORIELA and FREE assets/authority must remain separate.
+6. MEMORIELA assets/canon must remain isolated from generic FREE.
 7. Do not silently rewrite user-authored or local-AI-authored JSON Part semantics.
-8. Do not infer missing requirements. Ask only when a genuinely required decision is unresolved.
-9. Rendering, line art, pose, appearance, content and postprocess are separate responsibilities. Do not solve one by distorting another.
-10. Manual ComfyUI work is diagnostic only. Production UX must be automated by the app/API path.
-11. Preserve durable local state: `models/`, `database/`, `.env.local-ai`, accepted local JSON Parts, Oracle persistent data, local AI/Ollama models, trained LoRA data/weights. Never use `docker compose down -v` as cleanup.
-12. Project-created tools live under `C:\Dev\local-image-generator`; the existing external ComfyUI portable runtime remains outside the repo.
-13. Do not expose local credentials or secrets.
+8. Rendering, lineart, pose, appearance, content and postprocess are separate responsibilities.
+9. Manual ComfyUI node work is diagnostic only; production UX must be automated.
+10. Preserve durable state during cleanup: `models/`, `database/`, `.env.local-ai`, accepted JSON Parts, Oracle data/volume, Ollama/local-AI models, LoRA training data/weights.
+11. Never use `docker compose down -v` as cleanup.
+12. Project-created tools belong under `C:\Dev\local-image-generator`; existing external ComfyUI remains under Downloads.
+13. Never expose local credentials/secrets.
 14. If imported Python changes while the app is running, restart it before judging behavior.
 
 ---
 
-## 3. Product identity and source boundaries
+## 3. Product identity / boundaries
 
-Application/repository:
+Application:
 
 ```text
 local-RAG
@@ -51,27 +51,27 @@ repo: Pin-Gin/local-image-generator
 local root: C:\Dev\local-image-generator
 ```
 
-External MEMORIELA authority:
+External canon authority:
 
 ```text
+MEMORIELA
 repo: Pin-Gin/MEMORIELA
 expected local clone: C:\Dev\MEMORIELA
 ```
 
-`MEMORIELA` is a canon/character/brand authority, not the generic app/build/storage name.
+MEMORIELA is not the generic app/build/storage name.
 
-Current persistent/state locations that must survive cleanup:
+Persistent/state paths to preserve:
 
 ```text
 models/
 database/local_rag.db
 learning/local-ai/store/
 learning/rendering/
-infra/oracle/ + Oracle container persistent volume
-tools/ollama/          # local runtime/model data when installed
-tools/python312/       # project-local Python runtime when installed
-tools/sd-scripts/      # rendering training environment when installed
-outputs/               # generated output; disposable by policy but not delete without user intent
+infra/oracle/ + Oracle persistent volume
+tools/ollama/
+tools/python312/
+tools/sd-scripts/
 ```
 
 ---
@@ -90,25 +90,25 @@ GPU: NVIDIA GeForce RTX 5080
 VRAM: 16275 MB
 ```
 
-Project checkpoint exposure — VERIFIED:
+Project base checkpoint — VERIFIED:
 
 ```text
-C:\Dev\local-image-generator\models\checkpoints\sd_xl_base_1.0.safetensors
+models/checkpoints/sd_xl_base_1.0.safetensors
 SHA256: 31E35C80FC4829D14F90153F4C74CD59C90B779F6AFE05A74CD6120B893F7E5B
 ```
 
-`configure_comfyui_models.ps1` exposes project-owned model directories through ComfyUI `extra_model_paths.yaml`.
+`configure_comfyui_models.ps1` exposes project-owned model directories via ComfyUI `extra_model_paths.yaml`.
 
 ### Rendering training — VERIFIED
 
 ```text
-tools\python312
+tools/python312
 Python 3.12.10
 PyTorch 2.8.0+cu128
 CUDA: True
 GPU: RTX 5080
 
-tools\sd-scripts
+tools/sd-scripts
 20-image dataset
 5 epochs
 2000 steps
@@ -125,11 +125,11 @@ Oracle: 127.0.0.1:1521/FREEPDB1
 schema: LOCALRAG_KB1
 ```
 
-LEARN text/vision inference, Oracle JSON Part lookup, LocalAIToolbox, password rotation and the disposable `verify_local_stack.ps1` flow were previously VERIFIED.
+LEARN text/vision inference, Oracle JSON Part lookup, LocalAIToolbox and `verify_local_stack.ps1` have verified foundations.
 
 ---
 
-## 5. Responsibility split — fixed architecture
+## 5. Fixed responsibility split
 
 ### FREE
 
@@ -137,41 +137,39 @@ FREE is deterministic image generation. **No conversational/local-AI interpretat
 
 ```text
 explicit inputs
-  -> mechanical JSON Part resolution
-  -> deterministic GenerationPlan
-  -> deterministic compiler
-  -> ComfyUI
+-> mechanical JSON Part resolution
+-> deterministic GenerationPlan
+-> deterministic compiler
+-> ComfyUI
 ```
 
 Qwen must not rewrite, sanitize, summarize, select or reinterpret FREE generation content.
 
 ### MEMORIELA
 
-MEMORIELA retains AI at the planning/canon layer only.
+MEMORIELA retains AI at planning/canon resolution only.
 
 ```text
 user request
-  -> MEMORIELA AI / canon resolution
-  -> validated structured GenerationPlan
-  -> common deterministic generation engine
+-> MEMORIELA AI / canon resolution
+-> validated structured GenerationPlan
+-> common deterministic generation engine
 ```
-
-MEMORIELA identity assets must not leak into generic FREE generation.
 
 ### LEARN
 
-LEARN retains local AI for knowledge/JSON creation.
+LEARN retains local AI for reusable knowledge creation.
 
 ```text
 text/image/discussion
-  -> local AI
-  -> JSON candidate
-  -> staging
-  -> explicit acceptance/sync
-  -> accepted reusable JSON
+-> local AI
+-> JSON candidate
+-> staging
+-> explicit acceptance/sync
+-> accepted reusable JSON
 ```
 
-JSON persistence is not model-weight learning. LoRA/dataset training remains a separate lifecycle.
+JSON persistence is not model-weight learning. LoRA/dataset training is separate.
 
 ---
 
@@ -179,7 +177,7 @@ JSON persistence is not model-weight learning. LoRA/dataset training remains a s
 
 ### Step A — no-Qwen FREE path — VERIFIED
 
-User-verified evidence included:
+User evidence included:
 
 ```text
 [FREE:JSON-PART:OK]
@@ -187,13 +185,11 @@ User-verified evidence included:
 [FREE:TEST-CLEANUP:OK]
 ```
 
-### Step B — deterministic FREE GenerationPlan — VERIFIED
+### Step B — deterministic GenerationPlan — VERIFIED
 
-Separate contract fields exist for content, rendering, lineart, LoRA, pose and postprocess placeholders.
+Separate fields exist for content, rendering, lineart, LoRA, pose and postprocess placeholders.
 
-### Step C — content/rendering conditioning + real ComfyUI runtime — VERIFIED
-
-Compiler wiring:
+### Step C — content/rendering conditioning + real runtime — VERIFIED
 
 ```text
 Content CLIP -------\
@@ -201,13 +197,11 @@ Content CLIP -------\
 Rendering CLIP ----/
 ```
 
-User-verified real runtime output, manifest and SQLite recording succeeded.
+Real ComfyUI output + manifest + SQLite recording was user-verified.
 
 ### Step D — checkpoint + lineart channel — VERIFIED technically
 
-Project checkpoint catalog and separate lineart conditioning path are operational.
-
-Important quality boundary: the lineart channel executes, but its final preferred visual strength is still being tuned.
+Project checkpoint selection works and lineart has a separate conditioning channel. Preferred visual line strength is still tunable.
 
 ### Step E — DWPose/OpenPose ControlNet — VERIFIED E2E
 
@@ -218,47 +212,38 @@ comfyui_controlnet_aux
 DWPreprocessor
 ControlNetLoader
 ControlNetApplyAdvanced
-xinsir/controlnet-openpose-sdxl-1.0
+models/controlnet/SDXL/controlnet-openpose-sdxl-1.0/diffusion_pytorch_model.safetensors
 ```
 
-User-verified runtime path:
+User verified pose image upload -> DWPose -> OpenPose ControlNet -> sampler -> image -> manifest/SQLite.
 
-```text
-pose image upload
--> DWPose
--> SDXL OpenPose ControlNet
--> KSampler
--> output image
--> manifest / SQLite
-```
+Technical execution is VERIFIED; exact pose fidelity is still tunable.
 
-Technical execution is VERIFIED. Exact pose fidelity remains a tunable quality property.
-
-Licensing note: the selected DWPose/OpenPose preprocessor source contains a non-commercial licensing notice. Do not make commercial/redistribution claims without a dedicated license review.
+License caveat: the chosen DWPose/OpenPose preprocessor source contains a non-commercial notice. Do not make commercial/redistribution claims without dedicated review.
 
 ---
 
-## 7. Appearance authority experiment — img2img rejected as final architecture
+## 7. Rejected appearance approach: img2img source latent
 
-The first source-image experiment used:
+Historical experiment:
 
 ```text
-source image -> VAEEncode -> KSampler latent
+source image -> VAEEncode -> sampler latent
 pose image -> DWPose / ControlNet
 ```
 
 User observations:
 
-- lower denoise retained the original appearance but also retained the original pose too strongly;
-- higher denoise let pose move more but the result became a substantially different image/person.
+- low denoise: appearance remained, but original source pose also remained too strongly;
+- high denoise: pose had more room, but identity/appearance collapsed into a substantially different image.
 
-Conclusion: **img2img latent couples appearance and spatial pose too strongly for the intended FREE architecture.**
+Conclusion: source-image latent couples appearance and spatial pose too strongly for the intended FREE system.
 
-`src/free_image_pose_authority_experiment.py` is historical/superseded diagnostic code and must not define the production direction.
+The superseded script was removed from current source layout. Git history is the archive. Do not restore this as the primary architecture unless a future explicit experiment proves a new reason.
 
 ---
 
-## 8. IP-Adapter appearance authority — current successful direction
+## 8. Current successful direction: IP-Adapter appearance + DWPose pose + fresh latent
 
 IP-Adapter capability — VERIFIED:
 
@@ -275,73 +260,87 @@ IP-Adapter capability — VERIFIED:
 [IPADAPTER:CAPABILITY:READY]
 ```
 
-Installed project-owned models:
+Project-owned assets:
 
 ```text
 models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors
 models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors
 ```
 
-Current experiment uses a **fresh latent**, not source-image VAE latent:
+Current authority experiment:
 
 ```text
-main reference image
-  -> IP-Adapter Plus
-  -> appearance influence
+MAIN IMAGE
+-> IP-Adapter Plus
+-> appearance influence
 
-pose reference image
-  -> DWPose
-  -> OpenPose ControlNet
-  -> spatial pose influence
+POSE IMAGE
+-> DWPose
+-> OpenPose ControlNet
+-> spatial pose influence
 
 JSON Part
-  -> content/delta influence
+-> content/delta influence
 
 Rendering Conditioning
 Lineart Conditioning
-  -> drawing/rendering influence
+-> drawing/rendering influence
 
-fresh latent
-  -> SDXL generation
+FRESH LATENT
+-> SDXL generation
 ```
 
-### User-verified qualitative observation
+User qualitative verification after strengthened settings:
 
-With the strengthened diagnostic configuration, the user observed:
-
-- repeated generation under the same fixed conditions is not behaving randomly;
-- the original/main-image appearance remains recognizable;
-- the output appears to be **redrawn/generated anew rather than copying source pixels directly**;
-- pose influence is noticeably stronger than the earlier img2img-latent experiment, though not yet absolute;
+- same fixed conditions are not behaving randomly across repeats;
+- main-image appearance remains recognizable;
+- output appears to be redrawn/generated anew rather than source-pixel copying;
+- pose influence is stronger than the rejected img2img-latent experiment, though not absolute;
 - rendering became noticeably stronger.
 
-This is the current direction. Do not revert to source-image VAE latent as the primary appearance-authority mechanism unless a new experiment explicitly justifies it.
+Current diagnostic defaults that produced this observation:
+
+```text
+IP-Adapter weight: 0.75
+IP-Adapter start: 0.30
+Pose strength: 1.20
+Rendering strength: 1.25
+Lineart strength: 1.65
+Steps: 28
+Seed: 975311
+Fresh latent / denoise: 1.0
+```
+
+These are useful tuning baselines, not immutable production constants.
 
 ---
 
-## 9. New fixed FREE input model — TARGET DESIGN
+## 9. Fixed FREE input model — TARGET DESIGN
 
-The user chose a bounded input model instead of unlimited JSON accumulation.
-
-### Image inputs — exactly two conceptual roles
+### Two reference-image roles
 
 ```text
 1. MAIN REFERENCE IMAGE
-   role: appearance authority
    mechanism: IP-Adapter
-   target: face, hair, body appearance, clothing appearance, colors, general look
+   ownership: face/hair/body/clothing appearance, color, general look
 
 2. POSE REFERENCE IMAGE
-   role: spatial/body-pose authority
    mechanism: DWPose -> OpenPose ControlNet
-   target: skeleton, posture, arm/leg direction, body placement
+   ownership: skeleton, posture, limb direction, body placement
 ```
 
-Do not add extra reference-image roles casually. Additional reference images make authority ownership ambiguous.
+Do not casually add more reference-image roles; that makes authority ownership ambiguous.
 
-### JSON slots — maximum about five role slots
+Canonical local stores:
 
-Target slot set:
+```text
+references/free/main/
+references/free/pose/
+```
+
+Actual user images are ignored by Git by default.
+
+### Five bounded JSON content slots
 
 ```text
 1. CHARACTER / BODY
@@ -351,32 +350,33 @@ Target slot set:
 5. BACKGROUND / SCENE
 ```
 
-Each slot should hold zero or one explicit JSON Part reference in the production UI/contract. Internally a Part can remain structured and detailed.
+Each production slot should hold zero or one explicit Part ref. Unused slots may be null.
 
-FREE does **not** resolve semantic conflicts with AI. Contradictory JSON Parts must be rejected by structural/role validation where possible or surfaced to the user; do not silently choose a winner.
+Rendering and lineart are **not** part of these five slots.
 
-### Separate authority channels — not counted in the five content slots
+Machine-readable target contract:
 
 ```text
-RENDERING PROFILE
-LINEART PROFILE
+schemas/free_generation_input.schema.json
 ```
 
-Rendering and lineart are persistent drawing-method authorities, not ordinary scene/content JSON Parts.
+The lower-level existing Parts array can remain for compatibility/internal mechanics, but production UI/contract should enforce role ownership rather than an unlimited unordered list.
+
+FREE does not use AI to resolve contradictory Parts. Reject/surface conflicts where structurally detectable; never silently choose a semantic winner.
 
 ---
 
-## 10. Rendering authority — fixed artistic target
+## 10. Rendering Authority — fixed artistic direction
 
-The desired drawing method is more specific than the previous generic style prompt.
-
-Working name remains:
+Working identity:
 
 ```text
 Matte Dimensional Anime
 ```
 
-Target characteristics:
+Rendering must become the strongest persistent **drawing-method** authority.
+
+Required characteristics:
 
 ```text
 ANIME FOUNDATION
@@ -385,55 +385,52 @@ ANIME FOUNDATION
 - not photoreal human texture
 
 REAL-ANIME FORM
-- face/body/hair/clothing must have readable form and mass
+- face/body/hair/clothing retain readable form/mass
+- cheeks, nose, jaw, neck, limbs and torso read as volumes
 - avoid flat featureless cel planes
-- cheeks, nose, jaw, neck, limbs and torso should read as volumes
 
 MATTE MATERIAL RESPONSE
-- low-gloss / restrained highlights
+- low gloss / restrained highlights
 - no plastic CGI look
-- no PBR-style material dominance
-- skin remains stylized anime skin
+- no PBR material dominance
+- stylized anime skin
 
 DEPTH / SPACE
-- foreground, subject, midground and background separation
+- foreground, subject, midground, background separation
 - readable perspective and spatial layering
 - visible depth rather than flat poster-like composition
 
 SLIGHT 3D-ANIME DIMENSIONALITY
-- enough modeled form to feel mildly 3D/anime-rendered
-- must still read as an illustration/anime image, not a raw 3D render
+- mild modeled 3D-anime feeling
+- still unmistakably illustration/anime, not raw 3D render
 
 LINE CLARITY
-- contours must remain visible and intentional
-- face/body/hair/clothing boundaries must not dissolve into soft shading
-- stronger line presence than the earlier medium-fine/subordinate setting
-- lineart is controlled separately from rendering depth
+- contours remain visible and intentional
+- face/body/hair/clothing boundaries do not dissolve into shading
+- stronger line presence than the old medium-fine/subordinate setting
 ```
 
-The user wants this rendering description made more explicit as structured JSON and then used as the **strongest drawing-method authority**.
-
-Important implementation principle:
+Responsibility rule:
 
 ```text
-What is drawn       -> JSON content slots
-Who/how they look   -> main reference image / IP-Adapter
-How they move       -> pose reference image / DWPose-ControlNet
-How the image is drawn -> Rendering Authority
-How strong/clear contours are -> Lineart Authority
+what is drawn              -> five JSON content slots
+who/how they look          -> MAIN IMAGE / IP-Adapter
+how they move              -> POSE IMAGE / DWPose-ControlNet
+how the image is drawn     -> Rendering Authority
+how clear/strong contours  -> Lineart Authority
 ```
 
-A longer prompt alone is not sufficient. Rendering authority should be structurally strong through dedicated conditioning and, when explicitly enabled/validated, the trained Rendering LoRA.
+Rendering and lineart remain separate channels.
 
-Current `shared/rendering/matte_dimensional_anime.json` still has its LoRA `enabled: false`; do not silently enable it.
+Current `shared/rendering/matte_dimensional_anime.json` still has Rendering LoRA `enabled: false`; do not silently enable it. The trained LoRA previously worked, but it must be reintroduced explicitly into the new authority stack when chosen.
 
 ---
 
-## 11. JSON generation/sync policy
+## 11. JSON generation / sync policy
 
-The user intends to let the **local AI** produce detailed JSON, including content the remote assistant does not need to semantically inspect.
+The user intends local AI to create detailed JSON, including content the remote assistant does not need to semantically inspect.
 
-Desired operational flow:
+Desired flow:
 
 ```text
 local AI produces JSON
@@ -444,7 +441,7 @@ local AI produces JSON
 -> FREE mechanically references exact Part IDs
 ```
 
-The sync/accept layer should be able to operate without semantically rewriting the JSON. It may validate mechanically:
+Sync/accept must preserve payload semantics. It may mechanically validate:
 
 ```text
 valid JSON
@@ -456,160 +453,73 @@ status
 SHA256
 ```
 
-Do not weaken, summarize or normalize payload prose merely to sync it.
+Do not weaken, summarize, normalize or rewrite payload prose merely to synchronize it.
 
-Manual structured JSON compatibility remains supported. Exact ref syntax remains:
+Canonical Part ref remains:
 
 ```text
 part:<part_id>@<version>
 ```
 
+The structural sync/accept utility for the new bounded-slot workflow is **NOT IMPLEMENTED yet**.
+
 ---
 
-## 12. Reference-image storage decision
+## 12. Repository reorganization — PHASE 1 IMPLEMENTED / UNVERIFIED locally
 
-A project-local FREE reference store is the chosen direction:
+The repository was reorganized in Git after the user requested a cleanup. The layout changes themselves are not locally verified until the user pulls them.
+
+Canonical layout document:
 
 ```text
-C:\Dev\local-image-generator\references\free\main\
-C:\Dev\local-image-generator\references\free\pose\
+docs/architecture/REPOSITORY_LAYOUT.md
 ```
 
-Responsibilities:
-
-```text
-references/free/main/ -> IP-Adapter appearance sources
-references/free/pose/ -> DWPose pose sources
-```
-
-These are local runtime assets, not MEMORIELA canon assets. By default actual image files should stay out of Git; only directory documentation/placeholders should be tracked.
-
-Production input should ultimately reference these assets through deterministic relative paths/IDs rather than arbitrary implicit selection.
-
----
-
-## 13. Current generation contract direction
-
-Target production request shape conceptually:
-
-```json
-{
-  "main_image": "references/free/main/example.png",
-  "pose_image": "references/free/pose/example.png",
-  "parts": {
-    "character_body": "part:...@1",
-    "outfit_prop": "part:...@1",
-    "expression_face": "part:...@1",
-    "camera_composition": "part:...@1",
-    "background_scene": "part:...@1"
-  },
-  "rendering_profile": "matte-dimensional-anime",
-  "lineart_profile": "strong-anime-lineart"
-}
-```
-
-Null/unused content slots are allowed. Do not turn the five-slot design into an unlimited unordered Part list in the production UI.
-
-The existing lower-level JSON Parts array support can remain for compatibility/internal implementation, but the user-facing design should enforce role ownership.
-
----
-
-## 14. Current verified / open quality state
-
-### VERIFIED / sufficiently established to continue
-
-- FREE can bypass local conversational AI.
-- deterministic GenerationPlan exists.
-- separate content and rendering conditioning executes.
-- project checkpoint selection works.
-- lineart has a separate conditioning path.
-- DWPose/OpenPose ControlNet executes E2E.
-- IP-Adapter Plus SDXL + CLIP Vision are installed and recognized by ComfyUI.
-- fresh-latent IP-Adapter + DWPose direction preserves main-image appearance better than pure text generation while allowing more pose movement than source-latent img2img.
-- repeated fixed-condition output is sufficiently deterministic for A/B diagnosis.
-- stronger rendering/lineart conditioning produced a visible improvement according to the user.
-
-### OPEN / needs tuning
-
-- exact IP-Adapter weight/start schedule for best appearance vs pose balance.
-- exact DWPose/ControlNet strength needed for stronger pose fidelity.
-- final lineart strength; current line clarity is still a priority.
-- explicit structured Rendering JSON vNext.
-- whether/when to enable the trained Rendering LoRA in the new IP-Adapter + pose pipeline.
-- hand/finger/face/body correction pipeline.
-- targeted Inpaint, Detailer and Upscale.
-- desktop UI for two reference images + five JSON slots + rendering/lineart authorities.
-
----
-
-## 15. Postprocess remains deferred
-
-The user explicitly chose to solve the high-level intended behavior before fine anatomical correction.
-
-Do not jump ahead to hand/detailer/inpaint work while the core authority balance is still being established.
-
-Later order remains:
-
-```text
-targeted Inpaint
--> Detailer
--> Upscale
-```
-
----
-
-## 16. Repository organization direction
-
-The repository has accumulated diagnostic/test artifacts in `src/` and many root-level support scripts. Cleanup must preserve working runtime behavior while separating responsibilities.
-
-Canonical responsibility map going forward:
+Current responsibility map:
 
 ```text
 src/          production Python runtime/app engine
 ui/           desktop/webview frontend
-references/   user-supplied FREE reference images (actual images ignored by Git)
-shared/       global generation authorities: rendering + lineart
-profiles/     engine/generation profiles
+references/   FREE reference images
+shared/       Rendering + Lineart authorities
+profiles/     generation profiles
 workflows/    ComfyUI API workflow templates
-learning/     local-AI knowledge lifecycle + rendering training lifecycle
-models/       project-owned large model assets, ignored by Git
-config/       app/local-AI/tool config
 schemas/      machine contracts
-infra/        Oracle and infrastructure
-docs/         handoff + architecture documentation
-outputs/      generated images/manifests
-cache/        compiler/experiment cache
-logs/         runtime logs
+learning/     local-AI JSON lifecycle + rendering training
+models/       project-owned large model assets
+config/       app/local-AI/tool configuration
+infra/        Oracle/infrastructure
+experiments/  diagnostic code only
+tests/        repeatable validation/capability probes
+scripts/      future setup/maintenance/training script grouping
 database/     SQLite state
+outputs/      generated output
+cache/        temporary compiler/experiment data
+logs/         runtime logs
 tools/        installed project-local runtimes/tools
-experiments/  active/historical diagnostic scripts only; not production engine
-scripts/      setup/maintenance wrappers when root scripts are safely migrated
 ```
 
-Do not perform a mass move that breaks known runtime commands merely for aesthetics. First classify, then migrate with compatibility or updated call sites.
+Implemented cleanup actions:
 
-Historical/superseded diagnostic code should not remain mixed with production logic indefinitely. Git history is the archive; dead diagnostic code may be removed after its conclusions are captured here.
+- created `references/free/main/` and `references/free/pose/`;
+- `.gitignore` now keeps actual FREE reference images local-only;
+- added `schemas/free_generation_input.schema.json` for two images + five slots + Rendering/Lineart profiles;
+- created `experiments/` and moved the active IP-Adapter authority diagnostic out of `src/`;
+- removed the superseded img2img-authority experiment from current tree (Git history retains it);
+- created `tests/` organization and migrated standalone IP-Adapter and pose capability probes to `tests/capabilities/`;
+- updated installers to point to the migrated capability probes;
+- created `scripts/README.md` but intentionally did **not** mass-move root PowerShell scripts because several derive repo root from `$MyInvocation.MyCommand.Path` and blind relocation could break working paths;
+- updated `START_HERE.md`, root `README.md`, `domains/free/README.md`, `models/README.md` and this handoff.
 
----
+The cleanup is deliberately conservative: durable data and known runtime code were not deleted for aesthetics.
 
-## 17. Immediate next work order
-
-Current priority after this handoff update:
-
-1. **Repository/directory cleanup** without destroying persistent local state.
-2. Create canonical `references/free/main/` and `references/free/pose/` stores.
-3. Formalize the two-image + five-slot + Rendering/Lineart request contract.
-4. Add mechanical JSON staging -> accepted sync/validation without semantic rewriting.
-5. Rewrite/strengthen Matte Dimensional Anime as an explicit structured Rendering Authority JSON.
-6. Make the active IP-Adapter + DWPose experiment consume the canonical reference paths and role slots.
-7. A/B tune appearance authority, pose authority, rendering authority and lineart authority.
-8. Only after the core generation behavior is stable, proceed to targeted correction/postprocess.
+Several historical `*_test.py` files still remain in `src/`. They should be migrated gradually only when imports/commands are updated and locally verified.
 
 ---
 
-## 18. Important implementation files
+## 13. Current important paths after reorganization
 
-FREE engine:
+### Production FREE engine
 
 ```text
 src/free_generation_plan.py
@@ -620,20 +530,20 @@ src/comfyui_client.py
 src/model_catalog.py
 ```
 
-Current active diagnostic:
+### Active authority diagnostic
 
 ```text
-src/free_ipadapter_pose_json_experiment.py
+experiments/active/free_ipadapter_pose_json_experiment.py
 ```
 
-Capability tests:
+### Capability probes
 
 ```text
-src/ipadapter_capability_test.py
-src/pose_control_capability_test.py
+tests/capabilities/ipadapter_capability_test.py
+tests/capabilities/pose_control_capability_test.py
 ```
 
-Generation authority/profile data:
+### Authority data
 
 ```text
 shared/rendering/matte_dimensional_anime.json
@@ -642,7 +552,14 @@ profiles/free_sdxl_v1.json
 workflows/free_sdxl_conditioned_api.json
 ```
 
-JSON lifecycle:
+### FREE reference images
+
+```text
+references/free/main/
+references/free/pose/
+```
+
+### JSON lifecycle
 
 ```text
 src/json_parts.py
@@ -651,7 +568,7 @@ learning/local-ai/store/staging/
 learning/local-ai/store/json-parts/
 ```
 
-Local AI / Oracle:
+### Local AI / Oracle
 
 ```text
 src/local_ai_client.py
@@ -664,22 +581,77 @@ infra/oracle/
 
 ---
 
-## 19. Diagnostic commands worth preserving
+## 14. Postprocess remains deferred
+
+The user explicitly chose to establish high-level intended behavior first.
+
+Do not jump to hand/finger/face correction while appearance/pose/rendering/lineart authority balance is still being finalized.
+
+Later order remains:
+
+```text
+targeted Inpaint
+-> Detailer
+-> Upscale
+```
+
+---
+
+## 15. Open/tunable items
+
+- exact IP-Adapter weight/start schedule;
+- exact DWPose/ControlNet strength for stronger pose fidelity;
+- final Lineart Authority strength and wording;
+- explicit structured Matte Dimensional Anime Rendering JSON vNext;
+- whether/when to enable the trained Rendering LoRA in the new stack;
+- mechanical staging -> accepted JSON sync/validation utility;
+- production runtime support for the bounded five-slot contract;
+- desktop UI for MAIN image + POSE image + five JSON slots + Rendering/Lineart;
+- targeted Inpaint / Detailer / Upscale after core behavior stabilizes.
+
+---
+
+## 16. Immediate next work order
+
+Unless the user changes priority:
+
+1. Pull and locally verify the repository reorganization paths.
+2. Put test/user reference images under `references/free/main/` and `references/free/pose/`.
+3. Build mechanical JSON staging -> accepted sync/validation without semantic rewriting.
+4. Rewrite/strengthen Matte Dimensional Anime into explicit structured Rendering Authority JSON.
+5. Make runtime consume the bounded two-image + five-slot contract.
+6. A/B tune appearance, pose, rendering and lineart authorities.
+7. Only then add targeted correction/postprocess.
+
+---
+
+## 17. Commands after reorganization
+
+From:
+
+```powershell
+cd C:\Dev\local-image-generator
+```
 
 IP-Adapter capability:
 
 ```powershell
-cd C:\Dev\local-image-generator
-.\tools\python312\python.exe .\src\ipadapter_capability_test.py
+.\tools\python312\python.exe .\tests\capabilities\ipadapter_capability_test.py
 ```
 
 Pose capability:
 
 ```powershell
-.\tools\python312\python.exe .\src\pose_control_capability_test.py
+.\tools\python312\python.exe .\tests\capabilities\pose_control_capability_test.py
 ```
 
-JSON Part read:
+Active experiment CLI sanity check:
+
+```powershell
+.\tools\python312\python.exe .\experiments\active\free_ipadapter_pose_json_experiment.py --help
+```
+
+JSON Part read (legacy location, not yet migrated):
 
 ```powershell
 .\tools\python312\python.exe .\src\json_part_read_test.py --ref part:<part_id>@<version>
@@ -691,13 +663,7 @@ Local stack:
 .\verify_local_stack.ps1
 ```
 
-ComfyUI endpoint:
-
-```text
-http://127.0.0.1:8188
-```
-
-PowerShell execution-policy failures should normally be handled per invocation rather than changing the system policy globally:
+PowerShell policy failures should normally use per-invocation bypass rather than global policy changes:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\<script>.ps1
@@ -705,33 +671,33 @@ powershell -ExecutionPolicy Bypass -File .\<script>.ps1
 
 ---
 
-## 20. Final anti-drift summary
+## 18. Final continuation vector
 
-The current project direction is **not** generic prompt engineering and **not** source-image img2img.
+The current FREE project is **not** generic prompt engineering and **not** source-image img2img.
 
-The intended FREE system is:
+The intended system is:
 
 ```text
 MAIN IMAGE
-  -> IP-Adapter appearance authority
+-> IP-Adapter appearance authority
 
 POSE IMAGE
-  -> DWPose / OpenPose ControlNet spatial authority
+-> DWPose / OpenPose ControlNet pose authority
 
-UP TO FIVE ROLE-BOUND JSON PARTS
-  -> content/deltas
+FIVE ROLE-BOUND JSON SLOTS MAX
+-> content/deltas
 
 RENDERING AUTHORITY
-  -> strongest persistent drawing-method definition
-  -> matte + anime realism + depth + slight 3D-anime dimensionality
+-> strongest persistent drawing-method definition
+-> matte + anime realism + depth + slight 3D-anime dimensionality
 
 LINEART AUTHORITY
-  -> independently strong/clear contours
+-> independently strong/clear contours
 
 FRESH LATENT
-  -> redraw/generate the final image
+-> redraw/generate final image
 ```
 
-Local AI creates reusable JSON in LEARN; FREE mechanically consumes accepted structured inputs. MEMORIELA remains a separate canon-aware planning domain.
+Local AI creates reusable JSON in LEARN. FREE consumes accepted structured inputs mechanically. MEMORIELA remains a separate canon-aware planning domain.
 
-Do not collapse these authorities back into one prompt, do not let one reference image silently own all responsibilities, and do not reintroduce Qwen into FREE.
+Do not collapse these authorities into one prompt, do not let one image silently own all responsibilities, and do not reintroduce Qwen into FREE.
