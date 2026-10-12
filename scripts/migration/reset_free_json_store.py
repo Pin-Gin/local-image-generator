@@ -26,12 +26,12 @@ def _candidate() -> dict:
         "name": "FREE baseline white studio background",
         "status": "staging",
         "aliases": ["white studio", "simple white room"],
-        "tags": ["free", "test", "background", "studio"],
+        "tags": ["free", "test", "background_scene", "studio"],
         "payload": {
             "generation": {
                 "positive": (
                     "simple bright white studio interior, matte white walls, pale neutral floor, "
-                    "soft diffuse ambient light, subtle architectural depth, uncluttered empty background, "
+                    "soft diffuse neutral ambient light, subtle architectural depth, uncluttered empty background, "
                     "clean spatial separation, no text, no signage"
                 ),
                 "negative": (
@@ -40,11 +40,27 @@ def _candidate() -> dict:
                 ),
             },
             "structured": {
-                "environment": "minimal white studio interior",
-                "surface_finish": "matte",
-                "lighting": "soft diffuse neutral light",
-                "depth": "subtle but readable interior depth",
-                "clutter": "none",
+                "application": {
+                    "mode": "delta",
+                    "preserve_unspecified": True,
+                },
+                "location": "minimal white studio interior",
+                "environment_objects": [],
+                "time_of_day": None,
+                "weather": None,
+                "scene_light_context": "soft diffuse neutral studio light",
+                "explicit_overrides": [
+                    "background is an uncluttered matte white studio interior",
+                ],
+                "must_not_define": [
+                    "character_appearance",
+                    "outfit",
+                    "expression",
+                    "skeletal_pose",
+                    "camera_mechanics",
+                    "rendering_technique",
+                    "lineart",
+                ],
             },
         },
         "provenance": {
