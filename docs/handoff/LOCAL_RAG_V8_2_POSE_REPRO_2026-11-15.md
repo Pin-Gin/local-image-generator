@@ -106,9 +106,9 @@ outputs/experiments/text_pose_web/<session>/compiled_workflow.json  # --source m
 ~~~
 
 ZIPの導入順（全て差分パッチ、単体では完全なv8.2環境にならない）:
-1. v7_architecture_patch_installer_fixed.zip
-2. v7_external_pose_patch.zip
-3. qwen_v6_patch.zip（v7の依存で先に導入済みなら再導入不要）
+1. qwen_v6_patch.zip（既に導入されている場合はハッシュとコードを確認し再インストール不要）
+2. v7_architecture_patch_installer_fixed.zip
+3. v7_external_pose_patch.zip
 4. v8_direct_pose_patch.zip
 5. v8_1_structure_patch.zip
 6. v8_2_frame_patch.zip
