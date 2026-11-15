@@ -1,0 +1,233 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 768,
+      "height": 1344,
+      "batch_size": 1
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "single adult woman, full body, sitting upright facing front, knees flexed and opened outward symmetrically, both feet positioned inward relative to the knees, M-shaped bent-leg seated posture, front view, same subject identity, face, hairstyle, hair color and body proportions as reference image, natural anatomical proportions, preserve reference clothing unless explicitly changed, soft matte anime realism, delicate semi-real anime shading, natural soft light, gentle natural smile",
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "matte soft anime realism, smooth delicate illustrated skin, subtle natural volume, airy soft lighting, gently modeled anime face, soft clean hair strands, restrained contours, not photorealistic",
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "5": {
+    "class_type": "ConditioningCombine",
+    "inputs": {
+      "conditioning_1": [
+        "3",
+        0
+      ],
+      "conditioning_2": [
+        "4",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "different person, altered hairstyle, altered face, incorrect anatomy, extra limbs, photoreal, live action, plastic CGI, PBR, harsh hard-edged shadows, heavy comic outlines, flat anime cel-shading",
+      "clip": [
+        "1",
+        1
+      ]
+    }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 975311,
+      "steps": 28,
+      "cfg": 6.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0,
+      "model": [
+        "42",
+        0
+      ],
+      "positive": [
+        "23",
+        0
+      ],
+      "negative": [
+        "23",
+        1
+      ],
+      "latent_image": [
+        "2",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "LOCAL_RAG_TEXT_POSE_POC",
+      "images": [
+        "8",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "POC_POSE_5c878552a3ff.png"
+    }
+  },
+  "22": {
+    "class_type": "ControlNetLoader",
+    "inputs": {
+      "control_net_name": "SDXL\\controlnet-openpose-sdxl-1.0\\diffusion_pytorch_model.safetensors"
+    }
+  },
+  "23": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "control_net": [
+        "22",
+        0
+      ],
+      "image": [
+        "20",
+        0
+      ],
+      "strength": 1.2,
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "30": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "POC_MAIN_7ece7b9e2b42.png"
+    }
+  },
+  "40": {
+    "class_type": "IPAdapterUnifiedLoader",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "preset": "PLUS (high strength)"
+    }
+  },
+  "41": {
+    "class_type": "IPAdapterAdvanced",
+    "inputs": {
+      "model": [
+        "40",
+        0
+      ],
+      "ipadapter": [
+        "40",
+        1
+      ],
+      "image": [
+        "30",
+        0
+      ],
+      "weight": 0.4,
+      "weight_type": "linear",
+      "combine_embeds": "concat",
+      "start_at": 0.3,
+      "end_at": 0.9,
+      "embeds_scaling": "K+mean(V) w/ C penalty"
+    }
+  },
+  "31": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "POC_HEAD_0b6d65cf12fb.png"
+    }
+  },
+  "32": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "POC_HEAD_MASK_afeb1497d148.png"
+    }
+  },
+  "33": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "32",
+        0
+      ],
+      "channel": "red"
+    }
+  },
+  "42": {
+    "class_type": "IPAdapterAdvanced",
+    "inputs": {
+      "model": [
+        "41",
+        0
+      ],
+      "ipadapter": [
+        "40",
+        1
+      ],
+      "image": [
+        "31",
+        0
+      ],
+      "attn_mask": [
+        "33",
+        0
+      ],
+      "weight": 0.55,
+      "weight_type": "linear",
+      "combine_embeds": "concat",
+      "start_at": 0.35,
+      "end_at": 1.0,
+      "embeds_scaling": "K+mean(V) w/ C penalty"
+    }
+  }
+}

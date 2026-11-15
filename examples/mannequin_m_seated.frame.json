@@ -1,0 +1,30 @@
+{
+  "schema_version": "v8.2.frame_anchors.v1",
+  "source_image_sha256": "26b09627f98adab1143e67d91850da1d0a226f1c2a9c2e6a8df7c421aa408c8d",
+  "source_dimensions": {
+    "width": 1218,
+    "height": 1292
+  },
+  "annotation_status": "VISUAL_ESTIMATE_UNVERIFIED_NOT_3D",
+  "anchors": {
+    "head_top": {
+      "x": 601,
+      "y": 30,
+      "confidence": 0.65,
+      "provenance": "manual_image_estimate"
+    },
+    "right_toe": {
+      "x": 92,
+      "y": 1202,
+      "confidence": 0.6,
+      "provenance": "manual_image_estimate"
+    },
+    "left_toe": {
+      "x": 1109,
+      "y": 1202,
+      "confidence": 0.6,
+      "provenance": "manual_image_estimate"
+    }
+  },
+  "note": "Approximate 2D points seen in the mannequin image; no 3D depth, contact or toe anatomy is inferred. BODY_18 joint coordinates remain unchanged."
+}

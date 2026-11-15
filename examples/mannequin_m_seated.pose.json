@@ -1,0 +1,114 @@
+{
+  "schema_version": "v7.pose2d.v1",
+  "source_type": "estimated_from_user_supplied_2d_mannequin",
+  "source_image_sha256": "26b09627f98adab1143e67d91850da1d0a226f1c2a9c2e6a8df7c421aa408c8d",
+  "source_dimensions": {
+    "width": 1218,
+    "height": 1292
+  },
+  "coordinate_space": "pixels",
+  "joint_format": "BODY_18",
+  "keypoints": {
+    "nose": {
+      "x": 601,
+      "y": 223,
+      "confidence": 0.4,
+      "observability": "head_center_proxy_not_anatomical_nose"
+    },
+    "neck": {
+      "x": 600,
+      "y": 349,
+      "confidence": 0.68,
+      "observability": "estimated_neck"
+    },
+    "right_shoulder": {
+      "x": 445,
+      "y": 396,
+      "confidence": 0.88,
+      "observability": "visible_joint"
+    },
+    "right_elbow": {
+      "x": 402,
+      "y": 676,
+      "confidence": 0.73,
+      "observability": "visible_joint"
+    },
+    "right_wrist": {
+      "x": 315,
+      "y": 1028,
+      "confidence": 0.72,
+      "observability": "partly_occluded"
+    },
+    "left_shoulder": {
+      "x": 756,
+      "y": 396,
+      "confidence": 0.88,
+      "observability": "visible_joint"
+    },
+    "left_elbow": {
+      "x": 795,
+      "y": 680,
+      "confidence": 0.73,
+      "observability": "visible_joint"
+    },
+    "left_wrist": {
+      "x": 897,
+      "y": 1028,
+      "confidence": 0.72,
+      "observability": "partly_occluded"
+    },
+    "right_hip": {
+      "x": 501,
+      "y": 893,
+      "confidence": 0.52,
+      "observability": "estimated_occluded"
+    },
+    "right_knee": {
+      "x": 211,
+      "y": 638,
+      "confidence": 0.9,
+      "observability": "visible_joint"
+    },
+    "right_ankle": {
+      "x": 135,
+      "y": 1069,
+      "confidence": 0.88,
+      "observability": "visible_joint"
+    },
+    "left_hip": {
+      "x": 697,
+      "y": 893,
+      "confidence": 0.52,
+      "observability": "estimated_occluded"
+    },
+    "left_knee": {
+      "x": 982,
+      "y": 638,
+      "confidence": 0.9,
+      "observability": "visible_joint"
+    },
+    "left_ankle": {
+      "x": 1067,
+      "y": 1069,
+      "confidence": 0.88,
+      "observability": "visible_joint"
+    },
+    "right_eye": null,
+    "left_eye": null,
+    "right_ear": null,
+    "left_ear": null
+  },
+  "depth_status": "UNKNOWN_2D_IMAGE_ONLY",
+  "review_status": "NEEDS_HUMAN_REVIEW",
+  "provenance_note": "Manually estimated 2D points; nose field is a head-center proxy for OpenPose connectivity, NOT a detected facial landmark. Hips partly occluded. No real 3D coordinates.",
+  "contact": {
+    "floor": [
+      "pelvis",
+      "right_hand",
+      "left_hand",
+      "right_foot",
+      "left_foot"
+    ],
+    "status": "VISUAL_ESTIMATE_ONLY"
+  }
+}
