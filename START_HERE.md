@@ -19,6 +19,8 @@ docs/handoff/LOCAL_RAG_HANDOFF.md
 
 Read it completely before architecture or implementation changes. Then inspect current `main`. Repository state overrides old chat memory.
 
+2026-11-15 diagnostic continuation (not production Canon): [docs/handoff/LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md](docs/handoff/LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md). This records the visually promising v8.2 local pose experiment and its reproducibility limits; corresponding experiment code is not yet tracked in the GitHub main branch.
+
 Repository organization is documented at:
 
 ```text

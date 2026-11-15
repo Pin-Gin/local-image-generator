@@ -513,3 +513,12 @@ FRESH LATENT -> redraw final image
 ```
 
 LEARN creates reusable staging JSON. User acceptance promotes it mechanically without semantic rewriting. FREE consumes accepted structured inputs deterministically. MEMORIELA remains a separate canon-aware planning domain.
+
+
+---
+
+## 2026-11-15 画像生成ポーズ実験 v8.2（本番Canonとは別）
+
+再現条件とユーザー目視結果: [LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md](LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md)。
+
+この追記は実験ログであり、既存FREE正本の権威分離やRendering Authorityを自動変更しない。v8.2はユーザー画像で改善を確認できた「再開ベースライン」だが、同一人物85%以上・画風100%・M字座位の厳密一致は未証明。現行mainには当該v7〜v8.2のローカル実験コードとユーザー参照画像が未収録なので、手順書だけでクリーン環境から再現できるとは断定しない。
