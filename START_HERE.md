@@ -21,6 +21,8 @@ Read it completely before architecture or implementation changes. Then inspect c
 
 2026-11-15 diagnostic continuation (not production Canon): [docs/handoff/LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md](docs/handoff/LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md). This records the visually promising v8.2 local pose experiment and its reproducibility limits; corresponding experiment code is not yet tracked in the GitHub main branch.
 
+2026-11-22 FLUX3 redraw diagnostic continuation (experiment only): [docs/handoff/LOCAL_RAG_REDRAW_ROLES_V1_2026-11-22.md](docs/handoff/LOCAL_RAG_REDRAW_ROLES_V1_2026-11-22.md). This records the user-visually confirmed wardrobe-state result and the next body-detail/skin-tone direction. Recent Redraw scripts and private image assets are **not yet fully tracked on GitHub main**; do not claim clean-clone reproducibility from the handoff alone.
+
 Repository organization is documented at:
 
 ```text

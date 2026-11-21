@@ -522,3 +522,10 @@ LEARN creates reusable staging JSON. User acceptance promotes it mechanically wi
 再現条件とユーザー目視結果: [LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md](LOCAL_RAG_V8_2_POSE_REPRO_2026-11-15.md)。
 
 この追記は実験ログであり、既存FREE正本の権威分離やRendering Authorityを自動変更しない。v8.2はユーザー画像で改善を確認できた「再開ベースライン」だが、同一人物85%以上・画風100%・M字座位の厳密一致は未証明。現行mainには当該v7〜v8.2のローカル実験コードとユーザー参照画像が未収録なので、手順書だけでクリーン環境から再現できるとは断定しない。
+
+
+---
+
+## 2026-11-22 FLUX3 Redraw Reference Role Separation（実験引き継ぎ）
+
+直近の画像生成診断実験は [LOCAL_RAG_REDRAW_ROLES_V1_2026-11-22.md](LOCAL_RAG_REDRAW_ROLES_V1_2026-11-22.md) を参照。ユーザーが `redraw_role_separation_v1` の1枚で衣装状態の維持を確認したが、胸部・鼠径部／下半身の描き込み、色白肌、レンダリング品質は未達。現行の全身Master参照とPrompt Upsamplerを外し、Candidate全身＋Master顔髪クロップの2参照へ分離した実験の到達点を記録している。本番FREEの設計・Canonは変更しない。**直近のRedraw追加スクリプトは現行Git mainに未追跡のものがあり、手順書だけでは完全再現できない**。
