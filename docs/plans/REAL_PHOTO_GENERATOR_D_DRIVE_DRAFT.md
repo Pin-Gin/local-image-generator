@@ -6,11 +6,19 @@
 
 This note preserves the user's **provisional** directory layout and migration intent for a new, independent, photorealistic adult-woman local image generator. The user has additional requirements to communicate; do **not** finalize, provision, install, delete, or reorganize any runtime or repository on the basis of this document alone.
 
-## Goal and phases
+## Goal and planned sequence (updated user requirements, 2026-11-24)
 
-1. **Phase 1:** Generate a photorealistic adult woman **from text only** and assess image quality before introducing identity reference images.
-2. **Phase 2:** If quality is accepted, derive a realistic representation of the adult woman in the user-provided image, preserving agreed facial, hair, and bodily identity characteristics. Acceptance of a new realistic master is a separate user decision.
-3. **Phase 3:** Build a local tool with Japanese-language prompt input, references, generation settings and history, using the chosen verified generation backend.
+**Product direction:** Locally generate high-quality, photorealistic images of a fictional adult woman, eventually with reference-master-driven image and video generation. The intended quality benchmark is *GPT image-generation-like quality*, not a currently verified achievement or a numerical guarantee.
+
+**Order of work (do not skip forward):**
+
+0. **Environment reset & model inventory:** After approval of the D: layout, build a clean runtime independent of the anime-focused repository. Inventory downloaded apps/models and verify copies before any removal. Git repository creation remains user-controlled.
+1. **Find & evaluate photorealistic image models:** Search for models that excel at photorealistic adult female subjects and fit available local hardware (RTX 5080, 16 GB VRAM). Run multiple **text-to-image only** trials and judge actual images. Do not carry old anime tuning assumptions, previous models, or test results forward as accepted baselines. Evaluate visual realism, anatomy, face/hair/skin, lighting, consistency and practical runtime constraints.
+2. **Master-driven image generation:** Only after user accepts the text-only output quality, create/evaluate a photoreal interpretation of the fictional adult woman in the supplied reference. Preserve the approved face/hair/body features. Support **text + master image** to generate different scenes, clothing and poses; **chat-style input is a future interface goal**, not a present dependency. Validate identity consistency separately from image quality.
+3. **Video generation capability:** Plan both (a) master/reference image plus a textual motion instruction and (b) interpreting a supplied still image and creating appropriate motion (image-to-video). **60 FPS final video output is a goal**, not a confirmed local capability or a promise of native 60-FPS synthesis. Whether native FPS, interpolation and/or temporal consistency processing are appropriate remains to be tested. Evaluate motion coherence, identity retention, temporal flicker, generation time, VRAM, resolution and duration. Do not assume the chosen still-image model also supports video.
+4. **Application packaging last:** Only after the image and video paths are evaluated, decide whether the tool should be a **web application or desktop application**. Neither platform is fixed now. Keep generation backends independent of the eventual user interface.
+
+**Gates:** Model choice, photo realism, identity fidelity, video quality and 60-FPS viability must each be established by user-reviewed output, not by a filename, installed node, successful preflight or marketing claim. No image/video models have been newly selected here.
 
 The old anime-oriented architecture and v1–v19 experiments are historical context **not inherited as the new design**. Already-downloaded models may still be useful: inventory them, but do not presume they are selected or verified for the new photorealistic goal.
 
@@ -65,4 +73,13 @@ D:\AI\real-photo-generator\
 
 ## Scope of this Git change
 
-This Git change adds **only this planning document**. It does not modify `START_HERE.md`, the current FREE/LEARN/MEMORIELA architecture, code, model files, experiments, or local environments.
+This plan's Git changes edit **only this planning document**. It does not modify `START_HERE.md`, the current FREE/LEARN/MEMORIELA architecture, code, model files, experiments, or local environments.
+
+
+## Future video expansion and open design decisions (not yet fixed)
+
+The initial directory tree remains a **provisional scaffold**, not a production-ready layout. The final tree must be revised after the user finishes specifying requirements. In particular, avoid baking photo-only assumptions into the eventual storage and runtime layout; video models, temporary frames, video outputs and post-processing may need their own storage segregation. Exact names and component boundaries are **undecided**, so none are provisioned by this document.
+
+Open decisions include: which model(s) satisfy photoreal image quality; which model(s) perform image-conditioned/video synthesis; output resolution, duration and aspect ratio; identity and motion review criteria; the exact meaning of achieving 60 FPS; processing costs and latency; privacy/security requirements; and web-versus-desktop UI.
+
+**Safety/continuation:** The user has indicated that additional requirements may follow. This is a record for handoff only. Do not act on the destructive migration plan or begin implementation without a subsequent explicit request.
