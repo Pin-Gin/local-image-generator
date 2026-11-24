@@ -1,26 +1,23 @@
-# Real Photo Generator — D: Drive Directory Draft
+# Local Real Generator — D: Drive Layout / Migration Draft
 
-**Status: DRAFT / HANDOFF ONLY — NOT IMPLEMENTED / NOT APPROVED AS FINAL**
+**Status: DIRECTORY/MIGRATION DRAFT — REQUIREMENTS CONFIRMED IN THE LINKED BASELINE; NOT IMPLEMENTED**
 **Recorded:** 2026-11-24 (JST)
 **Temporary storage:** `Pin-Gin/local-image-generator` (existing repository)
 
-This note preserves the user's **provisional** directory layout and migration intent for a new, independent, photorealistic adult-woman local image generator. The user has additional requirements to communicate; do **not** finalize, provision, install, delete, or reorganize any runtime or repository on the basis of this document alone.
+This note preserves the proposed D-drive layout and migration boundaries for a new local adult-woman **semi-real CG to photoreal-leaning image-and-video generation system**. Product scope and development sequence are now confirmed in [REAL_GENERATOR_REQUIREMENTS_V1.md](REAL_GENERATOR_REQUIREMENTS_V1.md). This document covers only the filesystem/migration proposal; nothing has been implemented or deleted.
 
-## Goal and planned sequence (updated user requirements, 2026-11-24)
+## Confirmed product requirements (separate authority)
 
-**Product direction:** Locally generate high-quality, photorealistic images of a fictional adult woman, eventually with reference-master-driven image and video generation. The intended quality benchmark is *GPT image-generation-like quality*, not a currently verified achievement or a numerical guarantee.
+Read [REAL_GENERATOR_REQUIREMENTS_V1.md](REAL_GENERATOR_REQUIREMENTS_V1.md) for the **user-confirmed target and development order**. In summary:
 
-**Order of work (do not skip forward):**
+- Target **high-quality semi-real CG to photoreal-leaning** women, as demonstrated by the user's images; not exclusively real-world photography and not traditional flat anime.
+- First: evaluate locally runnable models through several **text-only image generation** trials; use the example images as the quality benchmark.
+- Next: on successful quality evaluation, generate the intended woman with **master-image + natural-language instructions** and check persistent identity across scenes; conversational input is a later goal.
+- Then: add local **master/reference-image-to-video** and image interpretation/motion, with **60 FPS final output as an unverified goal**.
+- Finally: decide **web or desktop application**; platform is not chosen now.
+- Preserve downloaded-model inventories and backups, but do not inherit the legacy anime model choices, workflows or quality tests as new-system baselines.
 
-0. **Environment reset & model inventory:** After approval of the D: layout, build a clean runtime independent of the anime-focused repository. Inventory downloaded apps/models and verify copies before any removal. Git repository creation remains user-controlled.
-1. **Find & evaluate photorealistic image models:** Search for models that excel at photorealistic adult female subjects and fit available local hardware (RTX 5080, 16 GB VRAM). Run multiple **text-to-image only** trials and judge actual images. Do not carry old anime tuning assumptions, previous models, or test results forward as accepted baselines. Evaluate visual realism, anatomy, face/hair/skin, lighting, consistency and practical runtime constraints.
-2. **Master-driven image generation:** Only after user accepts the text-only output quality, create/evaluate a photoreal interpretation of the fictional adult woman in the supplied reference. Preserve the approved face/hair/body features. Support **text + master image** to generate different scenes, clothing and poses; **chat-style input is a future interface goal**, not a present dependency. Validate identity consistency separately from image quality.
-3. **Video generation capability:** Plan both (a) master/reference image plus a textual motion instruction and (b) interpreting a supplied still image and creating appropriate motion (image-to-video). **60 FPS final video output is a goal**, not a confirmed local capability or a promise of native 60-FPS synthesis. Whether native FPS, interpolation and/or temporal consistency processing are appropriate remains to be tested. Evaluate motion coherence, identity retention, temporal flicker, generation time, VRAM, resolution and duration. Do not assume the chosen still-image model also supports video.
-4. **Application packaging last:** Only after the image and video paths are evaluated, decide whether the tool should be a **web application or desktop application**. Neither platform is fixed now. Keep generation backends independent of the eventual user interface.
-
-**Gates:** Model choice, photo realism, identity fidelity, video quality and 60-FPS viability must each be established by user-reviewed output, not by a filename, installed node, successful preflight or marketing claim. No image/video models have been newly selected here.
-
-The old anime-oriented architecture and v1–v19 experiments are historical context **not inherited as the new design**. Already-downloaded models may still be useful: inventory them, but do not presume they are selected or verified for the new photorealistic goal.
+The product **requirements are confirmed**, while the specific D-drive directory names and runtime components below remain provisional until implementation. A future video workflow may need additional model, frame, encoded-video and post-processing folders.
 
 ## Proposed filesystem layout (subject to change)
 
@@ -69,17 +66,17 @@ D:\AI\real-photo-generator\
 - Existing project and local files may contain untracked work; avoid `git clean`, mass staging (`git add .`), moving folders, or destructive scripts.
 - Because this **temporary handoff is stored in the old repository**, copy it to the new repository (or independent backup) before deleting the old repository or remote.
 - A setup PowerShell script was described in the conversation; its integrity, current contents and Windows execution are **not independently verified here**. Do not assume it has been run.
-- Paths and folder names above are **provisional**. Await further user requirements before implementation.
+- Paths and folder names above are **provisional**. Implement them only on a subsequent explicit user request.
 
 ## Scope of this Git change
 
-This plan's Git changes edit **only this planning document**. It does not modify `START_HERE.md`, the current FREE/LEARN/MEMORIELA architecture, code, model files, experiments, or local environments.
+These Git updates add the separate requirements baseline and update **only planning documentation**. They do not modify `START_HERE.md`, the current FREE/LEARN/MEMORIELA architecture, code, model files, experiments, or local environments.
 
 
 ## Future video expansion and open design decisions (not yet fixed)
 
-The initial directory tree remains a **provisional scaffold**, not a production-ready layout. The final tree must be revised after the user finishes specifying requirements. In particular, avoid baking photo-only assumptions into the eventual storage and runtime layout; video models, temporary frames, video outputs and post-processing may need their own storage segregation. Exact names and component boundaries are **undecided**, so none are provisioned by this document.
+The initial directory tree remains a **provisional scaffold**, not a production-ready layout. User product requirements are complete as of 2026-11-24, including video generation. Before actual setup, check video models, frame staging, video outputs and post-processing storage segregation. Exact names and component boundaries are **undecided**, so none are provisioned by this document.
 
-Open decisions include: which model(s) satisfy photoreal image quality; which model(s) perform image-conditioned/video synthesis; output resolution, duration and aspect ratio; identity and motion review criteria; the exact meaning of achieving 60 FPS; processing costs and latency; privacy/security requirements; and web-versus-desktop UI.
+Open technical decisions include: which model(s) satisfy the target semi-real CG to photoreal-leaning image quality; which model(s) perform image-conditioned/video synthesis; output resolution, duration and aspect ratio; identity and motion review criteria; the exact meaning of achieving 60 FPS; processing costs and latency; privacy/security requirements; and web-versus-desktop UI.
 
-**Safety/continuation:** The user has indicated that additional requirements may follow. This is a record for handoff only. Do not act on the destructive migration plan or begin implementation without a subsequent explicit request.
+**Safety/continuation:** Requirements were finalized for this checkpoint in the linked baseline. This directory plan is still a record for handoff only. Do not act on the destructive migration plan or begin implementation without a subsequent explicit request.
